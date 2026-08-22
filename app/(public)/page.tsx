@@ -6,7 +6,10 @@ import { Section, Tile, Step, CTA } from "@/components/landing/Pieces"
 import { Motion } from "@/components/landing/Motion"
 
 export const metadata: Metadata = {
-  title: "Intaglio — the memory of your printing press",
+  // `absolute` bypasses the root layout's "%s · Intaglio" template. Without it
+  // this rendered as "Intaglio — … · Intaglio", with the name twice. Every
+  // other page passes a plain string precisely so the template does apply.
+  title: { absolute: "Intaglio — Gravure Print Traceability" },
   description:
     "Intaglio records how every reel was printed and hands it back to the next shift before they start. A short plain-English guide.",
 }
