@@ -35,7 +35,7 @@ const buttonVariants = cva(
       size: {
         // Minimum touch target: 40px desktop, 64px kiosk -- Section 4.6.
         default: "h-[var(--tap)] px-4",
-        sm: "h-[calc(var(--tap)*0.8)] px-3 text-[length:calc(var(--base)*0.92)]",
+        sm: "h-[var(--tap-sm)] px-3 text-[length:calc(var(--base)*0.92)]",
         lg: "h-[calc(var(--tap)*1.25)] px-8 text-[length:calc(var(--base)*1.15)]",
         icon: "h-[var(--tap)] w-[var(--tap)] px-0",
         full: "h-[var(--tap)] w-full px-4",

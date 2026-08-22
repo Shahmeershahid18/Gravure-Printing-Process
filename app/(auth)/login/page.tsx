@@ -1,8 +1,11 @@
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getSessionProfile, landingFor } from "@/lib/auth"
+import { Wordmark } from "@/components/brand/Logo"
+import { ThemeToggle } from "@/components/theme/ThemeToggle"
 import { LoginForm } from "./login-form"
 
-export const metadata = { title: "Sign in · GravureTrace" }
+export const metadata = { title: "Sign in" }
 
 export default async function LoginPage() {
   // Already signed in: go where this role belongs rather than showing a form
@@ -11,37 +14,33 @@ export default async function LoginPage() {
   if (profile) redirect(landingFor(profile.role))
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-paper-100 p-4">
-      <div className="w-full max-w-sm">
-        {/* The wordmark is the only place the product names itself. */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2.5">
-            <span
-              aria-hidden="true"
-              className="flex h-8 w-8 items-center justify-center rounded-[var(--radius)] bg-ink-900"
-            >
-              <span className="flex gap-[2px]">
-                <span className="block h-3.5 w-[3px] bg-stn-cyan" />
-                <span className="block h-3.5 w-[3px] bg-stn-magenta" />
-                <span className="block h-3.5 w-[3px] bg-stn-yellow" />
-              </span>
-            </span>
-            <span className="text-[length:calc(var(--base)*1.3)] font-semibold tracking-tight text-ink-900">
-              GravureTrace
-            </span>
-          </div>
-          <p className="mt-2 text-[length:calc(var(--base)*0.92)] text-ink-600">
-            Gravure print traceability. Sign in to continue.
-          </p>
-        </div>
-
-        <LoginForm />
-
-        <p className="mt-6 text-[length:calc(var(--base)*0.82)] text-steel-400">
-          Machine tablets sign in once with their machine account. Operators
-          identify themselves with a PIN afterwards.
-        </p>
+    <main className="flex min-h-screen flex-col bg-paper-100">
+      <div className="flex items-center justify-between p-4">
+        <Link href="/" aria-label="Intaglio home">
+          <Wordmark
+            size={26}
+            nameClassName="text-[length:calc(var(--base)*1.05)]"
+          />
+        </Link>
+        <ThemeToggle />
       </div>
+
+      <div className="flex flex-1 items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <h1 className="text-[length:calc(var(--base)*1.6)] font-semibold tracking-tight text-ink-900">
+            Sign in
+          </h1>
+          <p className="mt-1.5 mb-8 text-[length:calc(var(--base)*0.95)] text-ink-600">
+            Use the account your supervisor set up for you.
+          </p>
+
+          <LoginForm />
+        </div>
+      </div>
+
+      {/* Nothing here describes how sign-in works, which accounts exist, or
+          what lives behind it. An unauthenticated page is read by everyone. */}
+      <div className="p-4" />
     </main>
   )
 }

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
 import { requireProfile, can } from "@/lib/auth"
 import { getActiveOperator } from "@/lib/actions/kiosk-auth"
+import { friendlyError, dbThrow } from "@/lib/errors"
 
 export type ActionResult = { ok: true } | { ok: false; error: string }
 
@@ -76,7 +77,7 @@ export async function acknowledgeAndStartRun(formData: FormData) {
       .select("id")
       .single()
 
-    if (error) throw new Error(error.message)
+    if (error) dbThrow(error, "Saving the run")
     runId = run.id
   } else {
     const { error } = await supabase
@@ -89,7 +90,7 @@ export async function acknowledgeAndStartRun(formData: FormData) {
         briefing_ack_at: new Date().toISOString(),
       })
       .eq("id", runId)
-    if (error) throw new Error(error.message)
+    if (error) dbThrow(error, "Saving the run")
   }
 
   // Seeds the 8 station rows and carries forward the previous run's cylinders,
@@ -152,7 +153,7 @@ export async function scheduleRun(formData: FormData): Promise<void> {
     .select("id")
     .single()
 
-  if (error) throw new Error(error.message)
+  if (error) dbThrow(error, "Saving the run")
 
   await supabase.rpc("fn_seed_run_stations", { p_run_id: run.id })
   await supabase.from("run_process").upsert({ run_id: run.id }, { onConflict: "run_id" })
@@ -169,7 +170,7 @@ export async function saveStationField(
 ): Promise<ActionResult> {
   const supabase = await createClient()
   const { error } = await supabase.from("run_stations").update(patch).eq("id", stationId)
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: friendlyError(error, "Could not save the run.") }
   return { ok: true }
 }
 
@@ -181,7 +182,7 @@ export async function saveRunProcess(
   const { error } = await supabase
     .from("run_process")
     .upsert({ run_id: runId, ...patch }, { onConflict: "run_id" })
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: friendlyError(error, "Could not save the run.") }
   revalidatePath(`/kiosk/runs/${runId}`)
   return { ok: true }
 }
@@ -195,7 +196,7 @@ export async function saveRunProcess(
 export async function applyRunMeters(runId: string): Promise<ActionResult> {
   const supabase = await createClient()
   const { error } = await supabase.rpc("fn_apply_run_meters", { p_run_id: runId })
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: friendlyError(error, "Could not save the run.") }
   revalidatePath(`/kiosk/runs/${runId}`)
   revalidatePath(`/runs/${runId}`)
   return { ok: true }
@@ -247,7 +248,7 @@ export async function closeRun(formData: FormData) {
     })
     .eq("id", runId)
 
-  if (error) throw new Error(error.message)
+  if (error) dbThrow(error, "Saving the run")
 
   // Meters have to be on the stations before the ledger means anything.
   if (applyMeters) {
@@ -272,7 +273,7 @@ export async function reopenRun(formData: FormData) {
     .from("runs")
     .update({ locked_at: null, status: "running" })
     .eq("id", runId)
-  if (error) throw new Error(error.message)
+  if (error) dbThrow(error, "Saving the run")
   revalidatePath(`/runs/${runId}`)
 }
 
@@ -288,7 +289,7 @@ export async function deleteRun(formData: FormData) {
     .from("runs")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", runId)
-  if (error) throw new Error(error.message)
+  if (error) dbThrow(error, "Saving the run")
   revalidatePath("/runs")
   redirect("/runs")
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/utils/supabase/server"
 import { requireProfile, can } from "@/lib/auth"
 import { getActiveOperator } from "@/lib/actions/kiosk-auth"
+import { friendlyError, dbThrow } from "@/lib/errors"
 
 export type ObservationInput = {
   job_file_id: string
@@ -86,7 +87,7 @@ export async function createObservation(
     .select("id")
     .single()
 
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: friendlyError(error, "Could not save the issue.") }
 
   revalidatePath("/issues")
   revalidatePath(`/jobs/${jobFileId}`)
@@ -119,7 +120,7 @@ export async function clearNextRunNote(formData: FormData) {
     })
     .eq("id", id)
 
-  if (error) throw new Error(error.message)
+  if (error) dbThrow(error, "Saving the issue")
 
   revalidatePath("/issues")
   revalidatePath("/dashboard")
@@ -140,6 +141,6 @@ export async function resolveObservation(formData: FormData) {
     .update({ is_resolved: true, result })
     .eq("id", id)
 
-  if (error) throw new Error(error.message)
+  if (error) dbThrow(error, "Saving the issue")
   revalidatePath("/issues")
 }

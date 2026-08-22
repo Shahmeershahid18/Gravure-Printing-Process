@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/auth"
 import { PageHeader, SectionHeading } from "@/components/ui/page-header"
 import { Card, CardHeader, CardBody } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,6 +12,10 @@ import { WearBar } from "@/components/cylinder/WearGauge"
 import { StationRail } from "@/components/run/StationRail"
 
 export const metadata = { title: "Design tokens" }
+
+// An internal reference for the people who maintain the component library.
+// It documents the token layer, which is a map of the app's surface area, so
+// it is admin-only rather than "anyone with a session".
 
 const NEUTRALS = [
   ["--ink-900", "Primary text, kiosk surfaces"],
@@ -57,7 +62,9 @@ const DEMO_STATIONS = [
  * aspirational: if a screen drifts off these tokens, the drift is visible here
  * side by side.
  */
-export default function ShowcasePage() {
+export default async function ShowcasePage() {
+  await requireRole("admin")
+
   return (
     <main className="mx-auto max-w-5xl p-8" data-shell="desktop">
       <PageHeader

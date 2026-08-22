@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { createClient } from "@/utils/supabase/server"
 import { requireProfile, can } from "@/lib/auth"
+import { friendlyError } from "@/lib/errors"
 
 export type SaveResult = { ok: boolean; error?: string }
 
@@ -259,5 +260,6 @@ function friendly(message: string, label: string): string {
   if (message.includes("violates foreign key")) {
     return "Something this record points at no longer exists. Refresh and try again."
   }
-  return message
+  // Never the raw text: it names tables, columns and policies.
+  return friendlyError({ message }, `Could not save that ${label}.`)
 }

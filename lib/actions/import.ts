@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/utils/supabase/server"
 import { requireRole } from "@/lib/auth"
+import { friendlyError } from "@/lib/errors"
 
 export type ImportTarget =
   | "customers" | "suppliers" | "machines" | "colour_names" | "issue_templates"
@@ -124,7 +125,7 @@ export async function importRows(target: ImportTarget, rows: Row[]): Promise<Imp
           row: excelRow,
           error: error.message.includes("duplicate key")
             ? "Already exists, skipped."
-            : error.message,
+            : friendlyError(error, "Could not import this row."),
         })
         continue
       }

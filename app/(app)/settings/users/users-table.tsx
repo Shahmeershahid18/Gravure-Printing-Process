@@ -413,11 +413,14 @@ function CreateDialog({
       }
     >
       <div className="space-y-4">
+        {/* Says what to do, not what the server runs on. Naming the provider
+            and the exact variable told an admin nothing useful and told
+            everyone else how the deployment is put together. */}
         {!enabled && (
-          <Alert tone="warn" title="Creating sign-ins is not configured">
-            SUPABASE_SERVICE_ROLE_KEY is not set on the server. Add it to your
-            environment, or create the user in the Supabase dashboard and set
-            their role from the list behind this dialog.
+          <Alert tone="warn" title="Creating sign-ins is not switched on">
+            This server cannot create sign-ins yet. Ask whoever set the system
+            up to enable it. In the meantime, add the person here without a
+            sign-in and set their role — they can be given access later.
           </Alert>
         )}
         {error && <Alert tone="critical" title="Not created">{error}</Alert>}

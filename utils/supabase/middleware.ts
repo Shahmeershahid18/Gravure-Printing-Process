@@ -1,8 +1,19 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { newNonce, contentSecurityPolicy, SECURITY_HEADERS } from "@/lib/security"
 
 /** Routes reachable without a session. */
 const PUBLIC_PREFIXES = ["/login", "/auth"]
+
+/**
+ * The landing page at "/" explains the product to someone who has never seen
+ * a gravure press. It is readable signed out, and readable signed in without
+ * bouncing anyone away mid-read, so it is handled separately from both the
+ * public prefixes and the role redirects below.
+ */
+function isLanding(path: string): boolean {
+  return path === "/"
+}
 
 /** Where each role lands. Mirrors landingFor() in lib/auth.ts. */
 function landingFor(role: string): string {
@@ -15,7 +26,26 @@ function landingFor(role: string): string {
 }
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+  // One nonce per request, handed to the document through a request header so
+  // the root layout can stamp it on the inline theme script, and named in the
+  // policy on the way back out.
+  const nonce = newNonce()
+  const csp = contentSecurityPolicy(nonce)
+
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set("x-nonce", nonce)
+  requestHeaders.set("content-security-policy", csp)
+
+  const nextOptions = { request: { headers: requestHeaders } }
+
+  /** Every response leaves through here, redirects included. */
+  const secure = (res: NextResponse) => {
+    res.headers.set("Content-Security-Policy", csp)
+    for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.headers.set(k, v)
+    return res
+  }
+
+  let supabaseResponse = NextResponse.next(nextOptions)
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,7 +57,7 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
+          supabaseResponse = NextResponse.next(nextOptions)
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
@@ -49,16 +79,16 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = pathname
     url.search = ""
-    return NextResponse.redirect(url)
+    return secure(NextResponse.redirect(url))
   }
 
   if (!user) {
-    if (isPublic) return supabaseResponse
+    if (isPublic || isLanding(path)) return secure(supabaseResponse)
     // Remember where they were headed so sign-in can return them there.
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     url.search = ""
-    return NextResponse.redirect(url)
+    return secure(NextResponse.redirect(url))
   }
 
   const { data: profile } = await supabase
@@ -77,7 +107,12 @@ export async function updateSession(request: NextRequest) {
   const role = profile?.role ?? "viewer"
   const home = landingFor(role)
 
-  if (isPublic || path === "/") return redirectTo(home)
+  if (isPublic) return redirectTo(home)
+
+  // A signed-in reader stays on the landing page. It swaps its own call to
+  // action to point at their shell rather than throwing them out of the
+  // explanation they were halfway through.
+  if (isLanding(path)) return secure(supabaseResponse)
 
   // Two distinct shells with two distinct audiences (plan Section 9).
   // Operators live in the kiosk; nobody else belongs there, and an operator
@@ -101,5 +136,5 @@ export async function updateSession(request: NextRequest) {
     return redirectTo(home)
   }
 
-  return supabaseResponse
+  return secure(supabaseResponse)
 }

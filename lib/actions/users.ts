@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/utils/supabase/server"
 import { requireRole, ROLES, type Role } from "@/lib/auth"
+import { friendlyError } from "@/lib/errors"
 
 export type UserResult = { ok: boolean; error?: string }
 
@@ -56,7 +57,7 @@ export async function updateProfile(values: {
     if (error.message.includes("duplicate key")) {
       return { ok: false, error: "That employee number is already used by someone else." }
     }
-    return { ok: false, error: error.message }
+    return { ok: false, error: friendlyError(error, "Could not save this person's details.") }
   }
 
   revalidatePath("/settings/users")
@@ -82,7 +83,7 @@ export async function setOperatorPin(profileId: string, pin: string): Promise<Us
     p_pin: pin,
   })
 
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: friendlyError(error, "Could not save this person's details.") }
 
   revalidatePath("/settings/users")
   return { ok: true }
@@ -92,7 +93,7 @@ export async function clearOperatorPin(profileId: string): Promise<UserResult> {
   await requireRole("admin")
   const supabase = await createClient()
   const { error } = await supabase.rpc("fn_clear_operator_pin", { p_profile_id: profileId })
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: friendlyError(error, "Could not save this person's details.") }
   revalidatePath("/settings/users")
   return { ok: true }
 }

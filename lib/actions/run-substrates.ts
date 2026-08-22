@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/utils/supabase/server"
 import { requireProfile } from "@/lib/auth"
+import { dbThrow } from "@/lib/errors"
 
 /**
  * The printed web on this run -- print only, one web (locked decision 6).
@@ -30,7 +31,7 @@ export async function addRunSubstrate(formData: FormData) {
     result: String(formData.get("result") ?? "") || null,
   })
 
-  if (error) throw new Error(error.message)
+  if (error) dbThrow(error, "Saving the reel")
 
   revalidatePath(`/kiosk/runs/${runId}/substrate`)
   revalidatePath(`/runs/${runId}`)
@@ -43,7 +44,7 @@ export async function removeRunSubstrate(formData: FormData) {
   const runId = String(formData.get("runId") ?? "")
 
   const { error } = await supabase.from("run_substrates").delete().eq("id", id)
-  if (error) throw new Error(error.message)
+  if (error) dbThrow(error, "Saving the reel")
 
   revalidatePath(`/kiosk/runs/${runId}/substrate`)
   revalidatePath(`/runs/${runId}`)

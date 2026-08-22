@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { createClient } from "@/utils/supabase/server"
 import { requireProfile, can } from "@/lib/auth"
+import { friendlyError, dbThrow } from "@/lib/errors"
 
 export type JobResult = { ok: true; id: string } | { ok: false; error: string }
 
@@ -62,7 +63,7 @@ export async function createJobFile(values: Record<string, unknown>): Promise<Jo
     if (error.message.includes("duplicate key")) {
       return { ok: false, error: `Job number ${job.job_no} already exists. Check the job list.` }
     }
-    return { ok: false, error: error.message }
+    return { ok: false, error: friendlyError(error, "Could not save the job file.") }
   }
 
   const { error: revError } = await supabase.from("artwork_revisions").insert({
@@ -149,7 +150,7 @@ export async function createArtworkRevision(values: Record<string, unknown>): Pr
     .select("id")
     .single()
 
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: friendlyError(error, "Could not save the job file.") }
 
   // Copy the previous cylinder set so the planner marks what changed rather
   // than re-entering eight stations.
@@ -203,7 +204,7 @@ export async function setRevisionCylinder(values: {
     { onConflict: "revision_id,station_no" }
   )
 
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: friendlyError(error, "Could not save the job file.") }
 
   revalidatePath(`/jobs/${values.job_file_id}/artwork`)
   return { ok: true }
@@ -222,7 +223,7 @@ export async function updateJobStatus(formData: FormData) {
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id)
 
-  if (error) throw new Error(error.message)
+  if (error) dbThrow(error, "Saving the job file")
   revalidatePath(`/jobs/${id}`)
   revalidatePath("/jobs")
 }

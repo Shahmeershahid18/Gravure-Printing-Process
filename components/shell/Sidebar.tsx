@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { Wordmark as BrandWordmark } from "@/components/brand/Logo"
 import type { Role } from "@/lib/roles"
 
 type Item = { href: string; label: string; roles?: Role[] }
@@ -80,13 +81,24 @@ export function Sidebar({ role }: { role: Role }) {
                     onClick={() => setOpen(false)}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex min-h-[var(--tap)] items-center rounded-[var(--radius)] px-2",
+                      "relative flex min-h-[var(--tap)] items-center rounded-[var(--radius)] px-2",
                       "text-[length:var(--base)] transition-colors",
+                      // A filled black pill inverts to a filled white pill in
+                      // dark mode and shouts down the whole rail. The accent
+                      // marker states the same thing at a fraction of the
+                      // weight, and the marker itself is a shape, not only a
+                      // colour (rule 4).
                       active
-                        ? "bg-ink-900 font-semibold text-paper-000"
+                        ? "bg-accent-bg font-semibold text-ink-900"
                         : "text-ink-600 hover:bg-paper-100 hover:text-ink-900"
                     )}
                   >
+                    {active && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-accent"
+                      />
+                    )}
                     {i.label}
                   </Link>
                 </li>
@@ -139,20 +151,11 @@ export function Sidebar({ role }: { role: Role }) {
 function Wordmark({ onClose }: { onClose?: () => void }) {
   return (
     <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-steel-200 px-4">
-      <Link href="/dashboard" className="flex items-center gap-2.5">
-        <span
-          aria-hidden="true"
-          className="flex h-7 w-7 items-center justify-center rounded-[var(--radius)] bg-ink-900"
-        >
-          <span className="flex gap-[2px]">
-            <span className="block h-3 w-[3px] bg-stn-cyan" />
-            <span className="block h-3 w-[3px] bg-stn-magenta" />
-            <span className="block h-3 w-[3px] bg-stn-yellow" />
-          </span>
-        </span>
-        <span className="text-[length:calc(var(--base)*1.05)] font-semibold tracking-tight text-ink-900">
-          GravureTrace
-        </span>
+      <Link href="/dashboard">
+        <BrandWordmark
+          size={26}
+          nameClassName="text-[length:calc(var(--base)*1.05)]"
+        />
       </Link>
       {onClose && (
         <button

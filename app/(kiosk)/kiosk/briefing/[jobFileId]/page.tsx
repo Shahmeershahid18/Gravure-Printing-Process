@@ -6,6 +6,7 @@ import { getActiveOperator } from "@/lib/actions/kiosk-auth"
 import { acknowledgeAndStartRun } from "@/lib/actions/runs"
 import { BriefingSheet, type Briefing } from "@/components/briefing/BriefingSheet"
 import { Alert } from "@/components/ui/alert"
+import { friendlyError } from "@/lib/errors"
 
 export const metadata = { title: "Pre run briefing" }
 
@@ -48,8 +49,8 @@ export default async function KioskBriefingPage({
   if (error) {
     return (
       <Alert tone="critical" title="The briefing could not be built">
-        {error.message}. Tell your supervisor, and do not start the run until it
-        loads.
+        {friendlyError(error, "The recall data could not be assembled.")} Tell
+        your supervisor, and do not start the run until it loads.
       </Alert>
     )
   }

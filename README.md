@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Intaglio
 
-## Getting Started
+The memory of a gravure printing press.
 
-First, run the development server:
+Intaglio records how every reel was printed — the settings, the materials, the
+problems and the fixes — and hands that back to the next shift *before* they
+start the same job again. Gravure is an intaglio process: the image is engraved
+into the copper cylinder rather than raised from it, which is where the name
+comes from.
+
+Built against `plan.md`. Current state and outstanding work: `STATUS.md`.
+
+## Stack
+
+Next.js 15 (App Router) · React 19 · Supabase (Postgres, Auth, Storage,
+Realtime) · Tailwind CSS v4 · TypeScript.
+
+## Running it
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Requires a `.env.local` with:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=   # optional: creating sign-ins from Settings → Users
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Never commit that file, and never expose the service-role key to the browser —
+it bypasses every row-level security policy in the database.
 
-## Learn More
+## Shape of the code
 
-To learn more about Next.js, take a look at the following resources:
+| Path | What lives there |
+|---|---|
+| `app/(app)` | The desktop shell: planners, supervisors, QC, admin |
+| `app/(kiosk)` | The tablet at the machine: one task per screen, 64px targets |
+| `app/(auth)` | Sign in |
+| `app/page.tsx` | The public explainer at `/` |
+| `components/ui` | The component library. One library, two densities |
+| `lib/actions` | Server actions, one file per domain |
+| `supabase/migrations` | Schema, RLS, views and functions, in order |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Two shells, one component library. Density is switched by `data-shell` on the
+root element, which drives `--base`, `--row-h`, `--tap` and `--gap`. Building a
+second design system for the tablet is the failure mode this avoids.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Design rules
 
-## Deploy on Vercel
+Stated in `plan.md` §4 and enforced in `app/globals.css`:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- The chrome is achromatic. The only saturated colour is *data* colour — the 8
+  station ink swatches and the 4 status signals — plus one copper accent for
+  interactive affordance.
+- Colour is never the only carrier of meaning. Every state also has a word.
+- One radius, two font weights, hairlines instead of shadows.
+- Motion is nearly absent in the app. The landing page is the exception.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Migrations
+
+Applied in filename order through the Supabase SQL editor or CLI. Check
+`STATUS.md` for which ones are already live.

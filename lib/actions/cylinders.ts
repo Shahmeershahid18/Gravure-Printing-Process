@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { createClient } from "@/utils/supabase/server"
 import { requireProfile, can } from "@/lib/auth"
+import { friendlyError, dbThrow } from "@/lib/errors"
 
 export type EventResult = { ok: boolean; error?: string }
 
@@ -62,7 +63,7 @@ export async function logCylinderEvent(values: Record<string, unknown>): Promise
     performed_by: profile.id,
   })
 
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: friendlyError(error, "Could not save the cylinder.") }
 
   // Some events also move the cylinder, so keep status honest without making
   // the user remember a second step.
@@ -106,7 +107,7 @@ export async function updateCylinderState(formData: FormData) {
 
   const supabase = await createClient()
   const { error } = await supabase.from("cylinders").update(patch).eq("id", id)
-  if (error) throw new Error(error.message)
+  if (error) dbThrow(error, "Saving the cylinder")
 
   revalidatePath(`/cylinders/${id}`)
   revalidatePath("/cylinders")

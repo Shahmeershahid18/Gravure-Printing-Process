@@ -4,6 +4,8 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { lockOperator, touchOperatorSession } from "@/lib/actions/kiosk-auth"
 import { Button } from "@/components/ui/button"
+import { Mark } from "@/components/brand/Logo"
+import { ThemeCycle } from "@/components/theme/ThemeToggle"
 import { cn } from "@/lib/utils"
 
 const IDLE_MS = 30 * 60 * 1000 // matches PIN_TTL_SECONDS in kiosk-auth
@@ -100,24 +102,18 @@ export function KioskBar({
         "border-b border-steel-200 bg-paper-000 px-[var(--gap)] sticky-bar"
       )}
     >
-      <span
-        aria-hidden="true"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius)] bg-ink-900"
-      >
-        <span className="flex gap-[2px]">
-          <span className="block h-3.5 w-[3px] bg-stn-cyan" />
-          <span className="block h-3.5 w-[3px] bg-stn-magenta" />
-          <span className="block h-3.5 w-[3px] bg-stn-yellow" />
-        </span>
-      </span>
+      <Mark size={32} />
 
       <div className="min-w-0 flex-1">
         <h1 className="truncate text-[length:calc(var(--base)*1.05)] font-semibold text-ink-900">
           {title}
         </h1>
+        {/* The title above already names the machine; repeating it here cost a
+            line of the bar and told the operator nothing. */}
         <p className="truncate text-[length:calc(var(--base)*0.78)] text-ink-600">
-          {machineCode ? `Machine ${machineCode}` : "Machine not assigned"}
-          {operatorName ? ` · ${operatorName}` : " · Nobody signed in"}
+          {!machineCode
+            ? "Machine not assigned"
+            : (operatorName ?? "Nobody signed in")}
         </p>
       </div>
 
@@ -127,6 +123,8 @@ export function KioskBar({
       >
         {clock}
       </span>
+
+      <ThemeCycle />
 
       <Button variant="outline" size="sm" onClick={toggleDaylight} aria-pressed={daylight}>
         {daylight ? "Daylight on" : "Daylight off"}

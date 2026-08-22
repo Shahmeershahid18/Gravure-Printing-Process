@@ -10,9 +10,13 @@ export default async function UsersPage() {
   const supabase = await createClient()
 
   const [{ data: profiles }, { data: machines }] = await Promise.all([
+    // has_pin is a generated column. pin_hash itself is not selectable by
+    // anyone, admins included -- the privilege is revoked at column level in
+    // 20260823140000_realtime_and_pin_hardening, so only the boolean can ever
+    // reach a browser.
     supabase
       .from("profiles")
-      .select("id, full_name, employee_no, role, default_machine_id, is_active, pin_hash")
+      .select("id, full_name, employee_no, role, default_machine_id, is_active, has_pin")
       .order("full_name"),
     supabase.from("machines").select("id, code").eq("is_active", true).order("code"),
   ])
@@ -24,9 +28,7 @@ export default async function UsersPage() {
     role: p.role,
     default_machine_id: p.default_machine_id,
     is_active: p.is_active,
-    // Never send the hash to the browser; the table only needs to know a PIN
-    // exists so it can offer "change" rather than "set".
-    has_pin: Boolean(p.pin_hash),
+    has_pin: Boolean(p.has_pin),
   }))
 
   return (

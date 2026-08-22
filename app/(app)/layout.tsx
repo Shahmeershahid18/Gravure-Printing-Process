@@ -2,6 +2,8 @@ import { requireProfile, roleLabel, initials } from "@/lib/auth"
 import { Sidebar } from "@/components/shell/Sidebar"
 import { AccountMenu } from "@/components/shell/AccountMenu"
 import { GlobalSearch } from "@/components/shell/GlobalSearch"
+import { ThemeToggle } from "@/components/theme/ThemeToggle"
+import { RealtimeRefresh } from "@/components/realtime/RealtimeRefresh"
 
 /**
  * The desktop shell -- planners, supervisors, QC and management.
@@ -20,7 +22,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-steel-200 bg-paper-000 px-3 sm:px-4">
           <GlobalSearch />
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-3">
+            <RealtimeRefresh showIndicator />
+            <ThemeToggle className="hidden sm:inline-flex" />
             <AccountMenu
               name={profile.full_name}
               email={profile.email}

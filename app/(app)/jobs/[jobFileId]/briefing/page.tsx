@@ -9,6 +9,7 @@ import { PrintButton } from "@/components/briefing/PrintButton"
 import { MachinePicker } from "@/components/briefing/MachinePicker"
 import { scheduleRun } from "@/lib/actions/runs"
 import { Button } from "@/components/ui/button"
+import { friendlyError } from "@/lib/errors"
 
 export const metadata = { title: "Pre run briefing" }
 
@@ -68,7 +69,7 @@ export default async function BriefingPage({
       <>
         <PageHeader title="Pre run briefing" />
         <Alert tone="critical" title="The briefing could not be built">
-          {error.message}
+          {friendlyError(error, "The recall data could not be assembled for this job and machine.")}
         </Alert>
       </>
     )

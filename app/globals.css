@@ -1,19 +1,33 @@
 @import "tailwindcss";
 
 /* =============================================================================
-   GravureTrace design tokens -- plan.md Section 4.
+   Intaglio design tokens -- plan.md Section 4, extended for two themes.
 
-   The thesis: the interface is a viewing booth. Printers judge colour against
-   neutral grey, so the chrome is achromatic and the only saturated colour on
-   screen is data colour -- the 8 station ink swatches and the 4 status signals.
-   Nothing decorative is ever allowed to be colourful. A designer who wants a
-   colourful accent has to break a stated rule to do it, which is what makes
-   the rule hold under two years of feature requests.
+   The thesis is unchanged: the interface is a viewing booth. Printers judge
+   colour against neutral grey, so the chrome is achromatic and the only
+   saturated colour on screen is data colour -- the 8 station ink swatches and
+   the 4 status signals. Nothing decorative is allowed to be colourful.
+
+   Two things were added to the plan's token layer:
+
+   1. A dark theme. The six neutrals are semantic, not literal, so `ink-900`
+      means "primary text" and `paper-000` means "surface" in both themes. That
+      lets every existing `text-ink-900` / `bg-paper-000` keep working while the
+      values invert underneath. Signals are re-tuned rather than reused: a
+      #1F7A4D green that passes AA on white fails on a near-black ground.
+
+   2. One accent, `--accent`, in copper. Gravure cylinders are copper-plated
+      before they are chromed, so it is the one hue the subject itself supplies.
+      It is confined to interactive affordance -- focus rings, links, the active
+      nav marker, the wordmark -- and never appears on a data surface, so the
+      booth rule still holds where it matters.
    ========================================================================== */
 
 :root {
-  /* -- Six neutrals ------------------------------------------------------- */
-  --ink-900:   #14161A;   /* primary text, kiosk surfaces */
+  color-scheme: light;
+
+  /* -- Six neutrals (semantic: role first, value second) ------------------- */
+  --ink-900:   #14161A;   /* primary text */
   --ink-600:   #4A5058;   /* secondary text */
   --steel-400: #8B939C;   /* tertiary text, disabled */
   --steel-200: #D9DDE1;   /* hairlines, borders */
@@ -26,14 +40,21 @@
   --signal-critical: #B3261E;
   --signal-info:     #1B5FA8;
 
-  /* Tinted grounds for signal surfaces. Kept near-white so a signal block
-     still reads as chrome, not as decoration. */
   --signal-ok-bg:       #EDF6F1;
   --signal-warn-bg:     #FBF3E6;
   --signal-critical-bg: #FBEEED;
   --signal-info-bg:     #EDF2F9;
 
-  /* -- Eight station swatches: the real inks, used only as swatches -------- */
+  /* -- Accent: copper, the colour of an unplated cylinder ------------------ */
+  --accent:        #8F5220;
+  --accent-strong: #6F3F19;
+  --accent-fg:     #FFFFFF;
+  --accent-bg:     #FAF1E9;
+  --accent-border: #E4CDB6;
+
+  /* -- Eight station swatches: the real inks, identical in both themes -----
+     These are measurements of physical ink. Shifting them for a dark UI would
+     be lying about the machine, so they do not move. */
   --stn-cyan:    #00A0DF;
   --stn-magenta: #E5007E;
   --stn-yellow:  #FFDD00;
@@ -44,25 +65,28 @@
   --stn-self2:   #C25E00;
 
   /* -- Type --------------------------------------------------------------- */
-  /* Plex was drawn for technical and machine documentation. The mono rule is
-     functional: viscosity, meters, tensions and batch codes are compared down
-     a column, and proportional digits break that scan. */
   --font-ui:   var(--font-plex-sans), "IBM Plex Sans", system-ui, sans-serif;
   --font-data: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
   --weight-regular: 400;
   --weight-semibold: 600;
 
-  /* -- Density ------------------------------------------------------------
-     One component library, two densities, switched by a root variable.
-     Building two design systems for desktop and tablet is the failure mode. */
+  /* -- Density ------------------------------------------------------------ */
   --base: 14px;
   --row-h: 32px;
   --tap: 40px;
   --gap: 8px;
 
+  /* The small button height. On desktop it shrinks for dense table rows, which
+     Section 4.4 rule 2 explicitly allows. On the kiosk it must not: 64px is a
+     floor, not a default, and a bar button at 0.8x lands on 51px -- missable
+     with a glove on. See the kiosk override below. */
+  --tap-sm: calc(var(--tap) * 0.8);
+
   /* -- Everything else ---------------------------------------------------- */
-  --radius: 4px;          /* one value, everywhere */
+  --radius: 4px;
   --hairline: 1px solid var(--steel-200);
+  --scrim: rgb(20 22 26 / 0.45);
+  --shadow-bar: 0 1px 2px rgb(20 22 26 / 0.06);
 
   /* -- Semantic aliases --------------------------------------------------- */
   --background: var(--paper-100);
@@ -71,7 +95,47 @@
   --muted-foreground: var(--ink-600);
   --subtle-foreground: var(--steel-400);
   --border: var(--steel-200);
-  --ring: var(--ink-900);
+  --ring: var(--accent);
+}
+
+/* -----------------------------------------------------------------------------
+   Dark theme.
+
+   Applied by an explicit [data-theme="dark"] only. Resolving the system
+   preference is done in one place, by the inline script in the root layout,
+   which stamps the attribute before first paint. Doing it here as well with a
+   media query would give two sources of truth and a flash when they disagree.
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ink-900:   #E9ECEF;
+  --ink-600:   #A7AFB8;
+  --steel-400: #78818B;
+  --steel-200: #2B3138;
+  --paper-100: #0D0F12;
+  --paper-000: #15181C;
+
+  /* Re-tuned, not reused. Lifted in lightness and dropped in saturation so
+     each one clears 4.5:1 on the dark surface. */
+  --signal-ok:       #45C285;
+  --signal-warn:     #E0A244;
+  --signal-critical: #F27B70;
+  --signal-info:     #6BA9EC;
+
+  --signal-ok-bg:       #10231A;
+  --signal-warn-bg:     #241B0D;
+  --signal-critical-bg: #271513;
+  --signal-info-bg:     #111E2B;
+
+  --accent:        #DFA46C;
+  --accent-strong: #EFBC8B;
+  --accent-fg:     #16191D;
+  --accent-bg:     #241A11;
+  --accent-border: #4A3524;
+
+  --scrim: rgb(0 0 0 / 0.6);
+  --shadow-bar: 0 1px 2px rgb(0 0 0 / 0.4);
 }
 
 /* Kiosk density. The tablet is clamped near a press under mixed lighting and
@@ -81,11 +145,15 @@
   --row-h: 64px;
   --tap: 64px;
   --gap: 16px;
+  /* No "small" on a tablet by a press. The bar is tall enough to take it. */
+  --tap-sm: var(--tap);
 }
 
 /* Daylight mode -- plan Section 4.6. For tablets near a window at noon.
-   Raises contrast rather than changing hue, so colour judgement is unaffected. */
-[data-daylight="on"] {
+   Raises contrast rather than changing hue, so colour judgement is unaffected.
+   Light theme only: at night the dark theme already is the high-contrast
+   answer, and forcing white here would blind the operator. */
+:root:not([data-theme="dark"])[data-daylight="on"] {
   --ink-600: #2B3036;
   --steel-400: #5C646D;
   --steel-200: #A8B0B8;
@@ -113,6 +181,12 @@
   --color-signal-warn-bg: var(--signal-warn-bg);
   --color-signal-critical-bg: var(--signal-critical-bg);
   --color-signal-info-bg: var(--signal-info-bg);
+
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-bg: var(--accent-bg);
+  --color-accent-border: var(--accent-border);
 
   --color-stn-cyan: var(--stn-cyan);
   --color-stn-magenta: var(--stn-magenta);
@@ -179,10 +253,21 @@
     border-radius: var(--radius);
   }
 
-  /* Depth is a hairline, not a shadow. */
   ::placeholder { color: var(--subtle-foreground); }
 
-  /* Motion is nearly absent. On a shop floor tablet animation reads as lag. */
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+
+  /* A themed scrollbar, so a dark app does not sprout a white gutter. */
+  * {
+    scrollbar-color: var(--steel-400) transparent;
+    scrollbar-width: thin;
+  }
+
+  /* Motion is nearly absent in the app itself. On a shop floor tablet
+     animation reads as lag. */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
@@ -198,19 +283,44 @@
      only on bars that stick. */
   .sticky-bar {
     border-color: var(--border);
-    box-shadow: 0 1px 2px rgb(20 22 26 / 0.06);
+    box-shadow: var(--shadow-bar);
   }
   .sticky-bar-top {
     border-color: var(--border);
     box-shadow: 0 -1px 2px rgb(20 22 26 / 0.06);
   }
+
+  /* Theme repaint. Only the properties that actually change, and only for
+     150ms -- long enough to read as a deliberate switch rather than a page
+     reload, short enough not to feel like lag. Suppressed for reduced motion
+     by the base rule above. */
+  .theme-transition,
+  .theme-transition * {
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      fill 150ms ease;
+  }
+
+  /* Landing page only: the entrance state GSAP animates away from. Declared
+     in CSS so the page is never left invisible if the script fails to run. */
+  .reveal-ready [data-reveal] {
+    opacity: 0;
+    transform: translateY(12px);
+  }
 }
 
-/* Print: the Pre Run Briefing goes to A4 for the floor. */
+/* Print: the Pre Run Briefing goes to A4 for the floor. Always on white,
+   whatever the operator's theme is set to. */
 @media print {
   @page { size: A4; margin: 14mm; }
   html { font-size: 11px; }
-  body { background: #fff; }
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    color-scheme: light;
+  }
   .no-print { display: none !important; }
   .print-break { break-inside: avoid; }
   a { text-decoration: none; color: inherit; }
