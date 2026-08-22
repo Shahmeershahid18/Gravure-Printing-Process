@@ -47,23 +47,28 @@ export function Section({
   )
 }
 
-/** One capability. A name and a single sentence -- no more. */
+/**
+ * One capability. A name and a single sentence -- no more.
+ *
+ * With `href` the whole tile becomes the link to that feature's guide, so the
+ * target is the card rather than a "learn more" tail nobody aims at on a
+ * phone.
+ */
 export function Tile({
   name,
   where,
+  href,
   children,
 }: {
   name: string
   where: string
+  href?: string
   children: React.ReactNode
 }) {
-  return (
-    <div
-      data-reveal="block"
-      className="group border-t border-steel-200 pt-4 transition-colors hover:border-accent"
-    >
+  const body = (
+    <>
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="font-semibold text-ink-900">{name}</h3>
+        <h3 className="font-semibold text-ink-900 group-hover:text-accent">{name}</h3>
         <span className="shrink-0 rounded-full border border-steel-200 px-2 py-0.5 text-[length:calc(var(--base)*0.72)] uppercase tracking-wide text-steel-400">
           {where}
         </span>
@@ -71,6 +76,18 @@ export function Tile({
       <p className="mt-1.5 text-[length:calc(var(--base)*0.95)] leading-relaxed text-ink-600">
         {children}
       </p>
+    </>
+  )
+
+  const shell = "group block border-t border-steel-200 pt-4 transition-colors hover:border-accent"
+
+  return href ? (
+    <Link href={href} data-reveal="block" className={shell}>
+      {body}
+    </Link>
+  ) : (
+    <div data-reveal="block" className={shell}>
+      {body}
     </div>
   )
 }

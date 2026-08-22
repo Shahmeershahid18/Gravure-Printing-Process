@@ -149,6 +149,19 @@
   --tap-sm: var(--tap);
 }
 
+/* The public pages -- landing, guides, policies.
+   14px is a density chosen for tables of figures, and it is the wrong size for
+   somebody reading two thousand words of explanation on a phone. The whole
+   scale keys off --base, so raising it here lifts the body text and drags the
+   micro-labels off 10px at the same time. 44px is the touch floor on a phone,
+   the way 64px is the floor by a press. */
+[data-shell="public"] {
+  --base: 16px;
+  --row-h: 40px;
+  --tap: 44px;
+  --gap: 8px;
+}
+
 /* Daylight mode -- plan Section 4.6. For tablets near a window at noon.
    Raises contrast rather than changing hue, so colour judgement is unaffected.
    Light theme only: at night the dark theme already is the high-contrast

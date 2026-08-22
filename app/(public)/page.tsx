@@ -1,8 +1,7 @@
 import Link from "next/link"
 import type { Metadata } from "next"
 import { getSessionProfile, landingFor, roleLabel } from "@/lib/auth"
-import { Mark } from "@/components/brand/Logo"
-import { ThemeToggle } from "@/components/theme/ThemeToggle"
+import { CardCap } from "@/components/landing/Chrome"
 import { Section, Tile, Step, CTA } from "@/components/landing/Pieces"
 import { Motion } from "@/components/landing/Motion"
 
@@ -11,13 +10,6 @@ export const metadata: Metadata = {
   description:
     "Intaglio records how every reel was printed and hands it back to the next shift before they start. A short plain-English guide.",
 }
-
-const NAV = [
-  { href: "#how", label: "How it works" },
-  { href: "#inside", label: "What's inside" },
-  { href: "#people", label: "Who uses it" },
-  { href: "#words", label: "Glossary" },
-]
 
 /** The eight print stations, in press order, in their real ink colours. */
 const STATIONS = [
@@ -45,8 +37,8 @@ const WORDS: [string, string][] = [
 /** A press, drawn at a glance: film in, eight inked stations, printed reel out. */
 function Press() {
   return (
-    <figure className="mt-14 rounded-[var(--radius)] border border-steel-200 bg-paper-000 p-5">
-      <div className="flex items-stretch gap-3">
+    <figure className="mt-12 overflow-hidden rounded-[var(--radius)] border border-steel-200 bg-paper-000 sm:mt-14">
+      <div className="flex items-stretch gap-3 p-4 sm:p-5">
         <div className="hidden w-14 shrink-0 flex-col justify-center border-r border-dashed border-steel-200 pr-3 text-right sm:flex">
           <span className="text-[length:calc(var(--base)*0.7)] uppercase tracking-wide text-steel-400">
             Film in
@@ -86,7 +78,7 @@ function Press() {
       </div>
       <figcaption
         data-reveal="hero"
-        className="mt-4 border-t border-steel-200 pt-3 text-[length:calc(var(--base)*0.9)] leading-relaxed text-ink-600"
+        className="border-t border-steel-200 px-4 py-3.5 text-[length:calc(var(--base)*0.9)] leading-relaxed text-ink-600 sm:px-5"
       >
         A gravure press is a very precise stamp machine. Plastic film races
         through it at three metres a second, picking up one colour at each of
@@ -100,65 +92,18 @@ function Press() {
 export default async function LandingPage() {
   const profile = await getSessionProfile()
   const home = profile ? landingFor(profile.role) : "/login"
-  const cta = profile ? "Open the app" : "Sign in"
 
   return (
-    <div data-shell="desktop" className="reveal-ready min-h-screen bg-paper-100">
+    <div className="reveal-ready">
       {/* Without JS the entrance never runs, so the hidden state is undone. */}
       <noscript>
         <style>{`.reveal-ready [data-reveal]{opacity:1!important;transform:none!important}`}</style>
       </noscript>
       <Motion />
 
-      {/* Header ---------------------------------------------------------- */}
-      <header className="sticky top-0 z-40 border-b border-steel-200 bg-paper-000/85 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-5 sm:px-6">
-          <Link
-            href="/"
-            aria-label="Intaglio home"
-            className="flex shrink-0 items-center gap-2.5"
-          >
-            <Mark size={30} />
-            <span className="text-[length:calc(var(--base)*1.15)] font-semibold tracking-tight text-ink-900">
-              Intaglio
-            </span>
-          </Link>
-
-          <nav aria-label="Page sections" className="hidden lg:block">
-            <ul className="flex items-center gap-1">
-              {NAV.map((n) => (
-                <li key={n.href}>
-                  <a
-                    href={n.href}
-                    className="rounded-[var(--radius)] px-3 py-2 text-[length:calc(var(--base)*0.9)] text-ink-600 transition-colors hover:bg-paper-100 hover:text-ink-900"
-                  >
-                    {n.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
-            <ThemeToggle className="hidden sm:inline-flex" />
-            <CTA href={home} primary>
-              {cta}
-            </CTA>
-          </div>
-        </div>
-
-        {/* Read progress. A hairline, in the accent, and the only moving part
-            of the chrome. */}
-        <div
-          data-scroll-progress=""
-          aria-hidden="true"
-          className="h-px origin-left scale-x-0 bg-accent"
-        />
-      </header>
-
-      <main className="mx-auto max-w-6xl px-5 pb-20 sm:px-6">
-        {/* Hero ---------------------------------------------------------- */}
-        <section className="pt-16 sm:pt-24">
+      <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
+        {/* Hero -------------------------------------------------------- */}
+        <section className="pt-14 sm:pt-24">
           <p
             data-reveal="hero"
             className="flex items-center gap-2 text-[length:calc(var(--base)*0.78)] font-semibold uppercase tracking-[0.12em] text-accent"
@@ -168,20 +113,20 @@ export default async function LandingPage() {
           </p>
           <h1
             data-reveal="hero"
-            className="mt-4 max-w-3xl text-[length:clamp(2.1rem,5.5vw,3.6rem)] font-semibold leading-[1.06] tracking-tight text-ink-900"
+            className="mt-4 max-w-3xl text-[length:clamp(2rem,5.5vw,3.6rem)] font-semibold leading-[1.06] tracking-tight text-ink-900"
           >
             Every reel remembers how it was printed.
           </h1>
           <p
             data-reveal="hero"
-            className="mt-6 max-w-xl text-[length:calc(var(--base)*1.2)] leading-relaxed text-ink-600"
+            className="mt-5 max-w-xl text-[length:calc(var(--base)*1.15)] leading-relaxed text-ink-600 sm:mt-6 sm:text-[length:calc(var(--base)*1.2)]"
           >
             The settings, the materials, the problems and the fixes — captured at
             the machine, and handed to the next shift before they start the same
             job again.
           </p>
 
-          <div data-reveal="hero" className="mt-9 flex flex-wrap items-center gap-3">
+          <div data-reveal="hero" className="mt-8 flex flex-wrap items-center gap-3 sm:mt-9">
             <CTA href={home} primary>
               {profile
                 ? `Go to my ${roleLabel(profile.role).toLowerCase()} view`
@@ -198,7 +143,7 @@ export default async function LandingPage() {
           <Press />
         </section>
 
-        {/* Problem ------------------------------------------------------- */}
+        {/* Problem ----------------------------------------------------- */}
         <Section
           eyebrow="Why it exists"
           title="A press forgets. This doesn't."
@@ -229,7 +174,7 @@ export default async function LandingPage() {
           </div>
         </Section>
 
-        {/* Loop ---------------------------------------------------------- */}
+        {/* Loop -------------------------------------------------------- */}
         <Section
           id="how"
           eyebrow="How it works"
@@ -256,84 +201,89 @@ export default async function LandingPage() {
           </ol>
         </Section>
 
-        {/* Inside -------------------------------------------------------- */}
+        {/* Inside ------------------------------------------------------ */}
         <Section
           id="inside"
           eyebrow="What's inside"
           title="Nine things it does"
-          lede="An office side on a desktop, and a stripped-back tablet at the machine. Same data, two very different screens."
+          lede={
+            <>
+              An office side on a desktop, and a stripped-back tablet at the
+              machine. Same data, two very different screens.{" "}
+              <Link href="/guide" className="text-accent underline underline-offset-4 hover:text-accent-strong">
+                Every one has a guide
+              </Link>
+              .
+            </>
+          }
         >
           <div className="grid gap-x-10 gap-y-7 md:grid-cols-2 lg:grid-cols-3">
-            <Tile name="Jobs" where="Office">
+            <Tile name="Jobs" where="Office" href="/guide/jobs">
               Every product you print, with its design, its film and its eight
               colours. The file everything else hangs off.
             </Tile>
-            <Tile name="Pre-run briefing" where="Both">
+            <Tile name="Pre-run briefing" where="Both" href="/guide/briefing">
               One page an operator reads before starting: last time&rsquo;s best
               settings, open warnings, and what went wrong before. Prints to A4.
             </Tile>
-            <Tile name="Run sheet" where="Tablet">
+            <Tile name="Run sheet" where="Tablet" href="/guide/run-sheet">
               The live record of a print run — all eight stations on one screen,
               saving as you type, and working with the wifi down.
             </Tile>
-            <Tile name="Cylinders" where="Office">
+            <Tile name="Cylinders" where="Office" href="/guide/cylinders">
               Where each engraved roller is, how far it has printed, and which
               ones are close to needing re-engraving.
             </Tile>
-            <Tile name="Issues" where="Both">
+            <Tile name="Issues" where="Both" href="/guide/issues">
               Problems logged with a photo in seconds, flagged to the next run,
               and cleared once someone has acted on them.
             </Tile>
-            <Tile name="Shift board" where="Office">
+            <Tile name="Shift board" where="Office" href="/guide/shift-board">
               What is on every machine right now, who is running it, and how the
               waste is tracking against target.
             </Tile>
-            <Tile name="Reports" where="Office">
+            <Tile name="Reports" where="Office" href="/guide/reports">
               Waste by job, by machine and by shift, so the arguments are about
               numbers rather than memory.
             </Tile>
-            <Tile name="Search" where="Office">
+            <Tile name="Search" where="Office" href="/guide/search">
               One box. A batch code, a job number, a customer or a cylinder —
               type it and go straight there.
             </Tile>
-            <Tile name="Settings" where="Office">
+            <Tile name="Settings" where="Office" href="/guide/settings">
               Machines, inks, films, customers and people. Set up once, then
               chosen from a list instead of retyped.
             </Tile>
           </div>
         </Section>
 
-        {/* People -------------------------------------------------------- */}
+        {/* People ------------------------------------------------------ */}
         <Section
           id="people"
           eyebrow="Who uses it"
-          title="Six roles, each shown only their own work"
+          title="Everyone sees only their own work"
           lede="Signing in decides what opens. Nobody has to learn a screen that isn't theirs."
         >
           <div
             data-reveal="block"
             className="overflow-x-auto rounded-[var(--radius)] border border-steel-200 bg-paper-000"
           >
-            <table className="w-full min-w-[36rem] text-left">
+            <table className="w-full min-w-[30rem] text-left">
               <thead>
                 <tr className="border-b border-steel-200 text-[length:calc(var(--base)*0.75)] uppercase tracking-wide text-steel-400">
                   <th className="px-4 py-3 font-semibold">Role</th>
-                  <th className="px-4 py-3 font-semibold">Opens on</th>
                   <th className="px-4 py-3 font-semibold">What they do</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-steel-200 text-[length:calc(var(--base)*0.95)]">
                 {[
-                  ["Operator", "The tablet", "Records the run at the machine and logs problems"],
-                  ["Supervisor", "Shift board", "Watches every machine and corrects the record"],
-                  ["Planner", "Job files", "Sets up products, designs and cylinders"],
-                  ["QC", "Dashboard", "Checks quality and answers customer complaints"],
-                  ["Admin", "Dashboard", "Manages people, machines and reference data"],
-                  ["Viewer", "Dashboard", "Reads everything, changes nothing"],
-                ].map(([role, opens, does]) => (
+                  ["Operator", "Records the run at the machine and logs problems"],
+                  ["Supervisor", "Watches every machine and corrects the record"],
+                  ["Planner", "Sets up products, designs and cylinders"],
+                  ["Quality", "Checks quality and answers customer complaints"],
+                ].map(([role, does]) => (
                   <tr key={role} className="transition-colors hover:bg-paper-100">
                     <td className="px-4 py-3 font-semibold text-ink-900">{role}</td>
-                    <td className="px-4 py-3 text-ink-600">{opens}</td>
                     <td className="px-4 py-3 text-ink-600">{does}</td>
                   </tr>
                 ))}
@@ -350,12 +300,20 @@ export default async function LandingPage() {
           </p>
         </Section>
 
-        {/* Glossary ------------------------------------------------------ */}
+        {/* Glossary ---------------------------------------------------- */}
         <Section
           id="words"
           eyebrow="Glossary"
           title="Eight words the floor uses"
-          lede="Enough to follow any screen in the app."
+          lede={
+            <>
+              Enough to follow any screen.{" "}
+              <Link href="/guide/words" className="text-accent underline underline-offset-4 hover:text-accent-strong">
+                Twenty more here
+              </Link>
+              .
+            </>
+          }
         >
           <dl className="grid gap-x-10 gap-y-6 md:grid-cols-2">
             {WORDS.map(([word, meaning]) => (
@@ -369,43 +327,62 @@ export default async function LandingPage() {
           </dl>
         </Section>
 
-        {/* Close --------------------------------------------------------- */}
+        {/* Close ------------------------------------------------------- */}
         <section
           data-reveal="block"
-          className="mt-16 overflow-hidden rounded-[var(--radius)] border border-steel-200 bg-ink-900 px-8 py-14 text-center"
+          className="mt-12 overflow-hidden rounded-[var(--radius)] border border-steel-200 bg-paper-000 sm:mt-16"
         >
-          <Mark size={40} className="mx-auto" />
-          <h2 className="mt-6 text-[length:clamp(1.4rem,3vw,2rem)] font-semibold tracking-tight text-paper-000">
-            {profile ? "Everything is where you left it." : "Ready when you are."}
-          </h2>
-          <p className="mx-auto mt-3 max-w-md leading-relaxed text-steel-400">
-            {profile
-              ? "Pick up your work from where the app opens for your role."
-              : "Sign in with the account your supervisor set up for you."}
-          </p>
-          <Link
-            href={home}
-            className="mt-8 inline-flex h-[var(--tap)] items-center justify-center rounded-[var(--radius)] bg-paper-000 px-7 font-semibold text-ink-900 transition-colors hover:bg-accent hover:text-accent-fg"
-          >
-            {cta}
-          </Link>
-        </section>
-      </main>
+          <CardCap />
+          <div className="grid gap-8 p-6 sm:p-9 lg:grid-cols-[1.15fr_1fr] lg:gap-14">
+            <div className="min-w-0">
+              <h2 className="text-[length:clamp(1.35rem,3vw,1.85rem)] font-semibold leading-tight tracking-tight text-ink-900">
+                {profile
+                  ? "Everything is where you left it."
+                  : "Start with the guide, or sign in."}
+              </h2>
+              <p className="mt-3 max-w-md leading-relaxed text-ink-600">
+                {profile
+                  ? "Pick up your work from where the app opens for your role. The guides stay here if you need to look something up."
+                  : "The guides explain every screen in plain English — no printing background needed. Signing in needs an account from your supervisor."}
+              </p>
+              <div className="mt-7 flex flex-wrap gap-3">
+                <CTA href={home} primary>
+                  {profile ? "Open the app" : "Sign in"}
+                </CTA>
+                <CTA href="/guide">Read the guides</CTA>
+              </div>
+            </div>
 
-      <footer className="border-t border-steel-200 py-8">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 text-[length:calc(var(--base)*0.86)] text-steel-400 sm:px-6">
-          <span className="flex items-center gap-2.5">
-            <Mark size={20} />
-            Intaglio — gravure print traceability
-          </span>
-          <div className="flex items-center gap-4">
-            <ThemeToggle className="sm:hidden" />
-            <Link href={home} className="transition-colors hover:text-ink-900">
-              {cta}
-            </Link>
+            {/* Three real destinations beat an empty half of a slab. */}
+            <div className="min-w-0 border-t border-steel-200 pt-7 lg:border-l lg:border-t-0 lg:pl-14 lg:pt-0">
+              <h3 className="text-[length:calc(var(--base)*0.75)] font-semibold uppercase tracking-wide text-steel-400">
+                New here? Start with
+              </h3>
+              <ul className="mt-4 space-y-3">
+                {[
+                  ["/guide/getting-started", "Getting started", "What to set up first, in the order that avoids rework"],
+                  ["/guide/words", "The words the floor uses", "Twenty terms in plain English"],
+                  ["/guide/run-sheet", "The run sheet", "How a job is recorded while it prints"],
+                ].map(([href, title, blurb]) => (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      className="group block border-t border-steel-200 pt-3 transition-colors hover:border-accent"
+                    >
+                      <span className="block font-semibold text-ink-900 group-hover:text-accent">
+                        {title}
+                      </span>
+                      <span className="mt-0.5 block text-[length:calc(var(--base)*0.88)] leading-relaxed text-ink-600">
+                        {blurb}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-        </div>
-      </footer>
+        </section>
+      </div>
     </div>
   )
 }

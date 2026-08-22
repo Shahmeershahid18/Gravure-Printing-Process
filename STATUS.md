@@ -31,7 +31,27 @@ every route from a production build.
 | Pre run briefing | RPC returns all 12 sections on both desktop and tablet |
 | Run screens | Run detail, station grid, process, substrate and finish all render |
 | Theme | Light / Dark / Auto, applied before first paint, no reload |
+| Public pages | Landing, 14 guides, and three policies — all readable signed in or out |
+| Responsive | 8 pages × 5 widths from 320px up: no sideways scroll, no text under 11px |
+| Touch targets | 64px on the tablet, 44px on the public pages, all controls clear WCAG 2.2 AA |
+| Browser | Driven in Chrome: 0 console errors, 0 hydration warnings, 0 CSP violations |
 | Build | Typecheck clean, ESLint clean, production build clean |
+
+## The public side
+
+`/` is a short explainer. The detail lives in `/guide`, which has fourteen
+pages grouped as Start here, At the machine, In the office and Concepts —
+including the glossary and the lifetime-versus-surface-metres explanation that
+used to make the landing page too long to read.
+
+`/privacy`, `/terms` and `/cookies` describe what the software actually does
+and are accurate about that. Each carries a visible notice naming what only the
+operating organisation can fill in — legal entity, contact, sub-processors,
+retention, governing law — because a policy that invents those is worse than no
+policy. Have them reviewed before relying on them.
+
+Nothing on any public page names a role that administers the system, an
+internal route, an environment variable, or the hosting provider.
 
 ## Security
 

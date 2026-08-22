@@ -106,7 +106,7 @@ export function ThemeToggle({ className }: { className?: string }) {
             onClick={() => setTheme(t)}
             aria-pressed={active}
             className={cn(
-              "rounded-[calc(var(--radius)-1px)] px-2.5 py-1 text-[length:calc(var(--base)*0.8)]",
+              "rounded-[calc(var(--radius)-1px)] px-3 py-2 text-[length:calc(var(--base)*0.8)]",
               "transition-colors",
               active
                 ? "bg-paper-000 font-semibold text-ink-900 shadow-[var(--shadow-bar)]"

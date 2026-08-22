@@ -6,13 +6,17 @@ import { newNonce, contentSecurityPolicy, SECURITY_HEADERS } from "@/lib/securit
 const PUBLIC_PREFIXES = ["/login", "/auth"]
 
 /**
- * The landing page at "/" explains the product to someone who has never seen
- * a gravure press. It is readable signed out, and readable signed in without
- * bouncing anyone away mid-read, so it is handled separately from both the
- * public prefixes and the role redirects below.
+ * Pages anyone may read, signed in or out: the landing page, the guides, and
+ * the policies.
+ *
+ * They are separate from PUBLIC_PREFIXES because those bounce a signed-in user
+ * away -- correct for the sign-in form, wrong for a guide someone is halfway
+ * through. These stay put and swap their own call to action instead.
  */
-function isLanding(path: string): boolean {
-  return path === "/"
+const OPEN_PAGES = ["/guide", "/privacy", "/terms", "/cookies"]
+
+function isOpen(path: string): boolean {
+  return path === "/" || OPEN_PAGES.some((p) => path === p || path.startsWith(p + "/"))
 }
 
 /** Where each role lands. Mirrors landingFor() in lib/auth.ts. */
@@ -83,7 +87,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (!user) {
-    if (isPublic || isLanding(path)) return secure(supabaseResponse)
+    if (isPublic || isOpen(path)) return secure(supabaseResponse)
     // Remember where they were headed so sign-in can return them there.
     const url = request.nextUrl.clone()
     url.pathname = "/login"
@@ -109,10 +113,10 @@ export async function updateSession(request: NextRequest) {
 
   if (isPublic) return redirectTo(home)
 
-  // A signed-in reader stays on the landing page. It swaps its own call to
-  // action to point at their shell rather than throwing them out of the
-  // explanation they were halfway through.
-  if (isLanding(path)) return secure(supabaseResponse)
+  // A signed-in reader stays on the landing page, the guides and the policies.
+  // Each swaps its own call to action to point at their shell rather than
+  // throwing them out of the page they were halfway through.
+  if (isOpen(path)) return secure(supabaseResponse)
 
   // Two distinct shells with two distinct audiences (plan Section 9).
   // Operators live in the kiosk; nobody else belongs there, and an operator
