@@ -7,12 +7,16 @@ import { Label } from '@/components/ui/label'
 import { enqueueSyncTask } from '@/lib/idb-queue'
 import { SyncManager } from './SyncManager'
 import { Switch } from '@/components/ui/switch'
+import { QuickObservationDialog } from './QuickObservationDialog'
+import { AlertCircle } from 'lucide-react'
 
 type Tab = 'setup' | 'running' | 'close'
 
 export function RunGrid({ run, initialStations, process, substrates }: any) {
   const [activeTab, setActiveTab] = useState<Tab>('running')
   const [stations, setStations] = useState<any[]>(initialStations)
+  const [obsDialogOpen, setObsDialogOpen] = useState(false)
+  const [obsTargetStation, setObsTargetStation] = useState<any>(null)
 
   // Debounced update handler
   const handleStationChange = useCallback((id: string, field: string, value: any) => {
@@ -58,7 +62,15 @@ export function RunGrid({ run, initialStations, process, substrates }: any) {
             <div key={station.id} className="w-[320px] flex flex-col border border-border rounded-lg overflow-hidden bg-background">
               {/* Station Header */}
               <div className="h-[var(--row-h)] bg-muted border-b border-border flex items-center justify-between px-4">
-                <div className="text-2xl font-bold text-muted-foreground">Stn {station.station_no}</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-bold text-muted-foreground">Stn {station.station_no}</div>
+                  <button 
+                    onClick={() => { setObsTargetStation(station); setObsDialogOpen(true) }}
+                    className="p-2 text-destructive hover:bg-destructive/10 rounded-full transition-colors ml-2"
+                  >
+                    <AlertCircle className="w-6 h-6" />
+                  </button>
+                </div>
                 <div className="flex items-center gap-2">
                   <Label className="text-sm font-medium">Idle</Label>
                   <Switch 
@@ -209,12 +221,25 @@ export function RunGrid({ run, initialStations, process, substrates }: any) {
           </div>
         </div>
         
-        <div className="ml-8">
+        <div className="ml-8 flex gap-4">
+          <button 
+            onClick={() => { setObsTargetStation(null); setObsDialogOpen(true) }}
+            className="h-[var(--tap)] px-6 text-destructive font-bold text-xl rounded-md border-2 border-destructive hover:bg-destructive/10 transition-colors"
+          >
+            Flag General Issue
+          </button>
           <button className="h-[var(--tap)] px-12 bg-primary text-primary-foreground font-bold text-xl rounded-md hover:bg-primary/90 transition-transform active:scale-[0.98]">
             Close Run
           </button>
         </div>
       </div>
+
+      <QuickObservationDialog 
+        isOpen={obsDialogOpen} 
+        onClose={() => setObsDialogOpen(false)} 
+        run={run}
+        station={obsTargetStation}
+      />
     </div>
   )
 }

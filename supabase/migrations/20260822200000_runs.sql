@@ -172,6 +172,8 @@ where status = 'completed' and result = 'ok' and deleted_at is null
   and waste_pct_m is not null
 order by job_file_id, waste_pct_m asc;
 
+drop view if exists v_cylinder_ledger cascade;
+
 -- Re-create v_cylinder_ledger to include runs
 create or replace view v_cylinder_ledger as
 select 

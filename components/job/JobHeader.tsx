@@ -44,6 +44,9 @@ export function JobHeader({ job }: { job: any }) {
           </div>
           <div className="flex gap-2">
             <Button variant="outline" asChild>
+              <Link href={`/jobs/${job.id}/issues`}>Problem History</Link>
+            </Button>
+            <Button variant="outline" asChild>
               <Link href={`/jobs/${job.id}/artwork`}>Artwork History</Link>
             </Button>
             <Button>Start Next Run</Button>

@@ -50,6 +50,42 @@ export function SyncManager() {
             if (!error && task.id) {
               await removeSyncTask(task.id)
             }
+          } else if (task.action === 'ADD_OBSERVATION') {
+            let photo_path = null
+            
+            // Upload photo if present
+            if (task.payload.photo_base64) {
+              // Use fetch to convert data url to Blob in the browser
+              const res = await fetch(task.payload.photo_base64)
+              const blob = await res.blob()
+              const fileName = `${task.payload.job_file_id}/${Date.now()}.jpg`
+              
+              const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('observation_photos')
+                .upload(fileName, blob, {
+                  contentType: 'image/jpeg',
+                  upsert: true
+                })
+              
+              if (uploadError) {
+                console.error('Photo upload failed:', uploadError)
+                throw uploadError // Stop processing and retry later
+              }
+              photo_path = uploadData.path
+            }
+
+            // Clean up payload before insert
+            const { photo_base64, ...dbPayload } = task.payload
+            
+            const { error } = await supabase
+              .from('observations')
+              .insert({ ...dbPayload, photo_path })
+
+            if (!error && task.id) {
+              await removeSyncTask(task.id)
+            } else if (error) {
+              throw error
+            }
           }
         } catch (e) {
           console.error('Sync failed for task', task, e)
