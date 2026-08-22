@@ -7,7 +7,7 @@ export default function KioskPage() {
         <h1 className="text-2xl font-semibold text-foreground mb-2">No runs active</h1>
         <p className="text-muted-foreground">Tap below to start the next run on this machine.</p>
       </div>
-      <Link href="/run">
+      <Link href="/kiosk/run">
         <button className="flex h-[var(--tap)] items-center justify-center rounded-lg bg-primary px-12 text-[length:var(--base)] font-semibold text-primary-foreground shadow-sm">
           Start next run
         </button>

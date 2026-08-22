@@ -34,7 +34,7 @@ export default function KioskLogin() {
     if (newPin.length === 4) {
       const res = await loginOperator(selectedOp, newPin)
       if (res.success) {
-        router.push('/') // Navigate back to machine home or redirect
+        router.push('/kiosk') // Navigate back to machine home or redirect
         router.refresh()
       } else {
         setError('Invalid PIN')

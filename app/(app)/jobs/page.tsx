@@ -1,8 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
-import { DataTable } from '@/components/ui/data-table'
+import { JobsTable } from './jobs-table'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { buttonVariants } from '@/components/ui/button'
 
 export default async function JobsPage() {
   const supabase = await createClient()
@@ -42,41 +41,12 @@ export default async function JobsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Job Files</h1>
           <p className="text-muted-foreground mt-2">Manage customer jobs and artwork revisions.</p>
         </div>
-        <Button asChild>
-          <Link href="/jobs/new">Create Job File</Link>
-        </Button>
+        <Link href="/jobs/new" className={buttonVariants({ variant: "default" })}>
+          Create Job File
+        </Link>
       </div>
 
-      <DataTable
-        columns={[
-          {
-            header: 'Job File',
-            accessorKey: 'job_file_no',
-            cell: (row) => (
-              <Link href={`/jobs/${row.id}`} className="font-medium hover:underline text-primary">
-                {row.job_file_no}
-              </Link>
-            )
-          },
-          { header: 'Job No', accessorKey: 'job_no' },
-          { header: 'Customer', accessorKey: 'customer' },
-          { header: 'Product', accessorKey: 'product_name' },
-          { header: 'Structure', accessorKey: 'structure' },
-          { header: 'Current Rev', accessorKey: 'revision' },
-          { header: 'Shade Card', accessorKey: 'shade_card' },
-          {
-            header: 'Status',
-            accessorKey: 'status',
-            cell: (row) => (
-              <Badge variant={row.status === 'active' ? 'default' : 'secondary'}>
-                {row.status}
-              </Badge>
-            )
-          }
-        ]}
-        data={formattedJobs}
-        searchKey="product_name"
-      />
+      <JobsTable data={formattedJobs} />
     </div>
   )
 }
