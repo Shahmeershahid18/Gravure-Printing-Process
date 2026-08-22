@@ -35,6 +35,12 @@ export default async function CylinderDetailPage({ params }: { params: { cylinde
 
   const events = [...(cylinder.cylinder_events || [])].sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime())
 
+  const { data: runHistory } = await supabase
+    .from('v_cylinder_run_history')
+    .select('*')
+    .eq('cylinder_id', params.cylinderId)
+    .order('run_date', { ascending: false })
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-8">
       {/* Header Info */}
@@ -95,16 +101,46 @@ export default async function CylinderDetailPage({ params }: { params: { cylinde
       </div>
 
       <div className="grid grid-cols-1 gap-8">
-        {/* Running History Scaffold */}
+        {/* Running History */}
         <Card>
           <CardHeader>
             <CardTitle>Running History</CardTitle>
             <CardDescription>Records of jobs run with this cylinder.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-sm text-muted-foreground bg-muted p-4 rounded-md">
-              Running history will be populated from run_stations in Phase 4.
-            </div>
+            {!runHistory || runHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No run history found.</p>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-12 gap-4 text-sm font-bold text-muted-foreground border-b pb-2">
+                  <div className="col-span-2">Job File</div>
+                  <div className="col-span-1">Mc</div>
+                  <div className="col-span-1">Run</div>
+                  <div className="col-span-2">Date</div>
+                  <div className="col-span-2 text-right">This Run</div>
+                  <div className="col-span-2 text-right">Cumulative</div>
+                  <div className="col-span-2">Note</div>
+                </div>
+                {runHistory.map((rh: any) => (
+                  <div key={`${rh.run_id}`} className="grid grid-cols-12 gap-4 text-sm border-b pb-2 last:border-0">
+                    <div className="col-span-2 font-medium">{rh.job_file_no}</div>
+                    <div className="col-span-1 text-muted-foreground">{rh.machine_code}</div>
+                    <div className="col-span-1 text-muted-foreground">{rh.run_no}</div>
+                    <div className="col-span-2 text-muted-foreground">{rh.run_date}</div>
+                    <div className="col-span-2 text-right">{rh.this_run_meters?.toLocaleString() || 0} m</div>
+                    <div className="col-span-2 text-right font-medium">{rh.cumulative_meters?.toLocaleString()} m</div>
+                    <div className="col-span-2 text-muted-foreground truncate" title={rh.observation}>{rh.observation}</div>
+                  </div>
+                ))}
+                
+                <div className="grid grid-cols-12 gap-4 text-sm border-t pt-2 text-muted-foreground">
+                  <div className="col-span-6 text-right font-medium">Opening reading at import</div>
+                  <div className="col-span-2"></div>
+                  <div className="col-span-2 text-right">{cylinder.opening_meters?.toLocaleString()} m</div>
+                  <div className="col-span-2"></div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
