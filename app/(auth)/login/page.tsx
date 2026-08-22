@@ -1,56 +1,47 @@
-import { login } from './actions'
+import { redirect } from "next/navigation"
+import { getSessionProfile, landingFor } from "@/lib/auth"
+import { LoginForm } from "./login-form"
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}) {
-  const params = await searchParams;
-  const message = params?.message;
+export const metadata = { title: "Sign in · GravureTrace" }
+
+export default async function LoginPage() {
+  // Already signed in: go where this role belongs rather than showing a form
+  // that would immediately bounce.
+  const profile = await getSessionProfile()
+  if (profile) redirect(landingFor(profile.role))
 
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-background">
-      <div className="w-full max-w-sm rounded-lg border border-border bg-card p-8 shadow-sm">
-        <h1 className="mb-6 text-2xl font-semibold">Login</h1>
-        <form className="flex flex-col gap-4">
-          
-          {message && (
-            <div className="rounded border border-destructive bg-destructive/10 p-2 text-sm text-destructive">
-              {message}
-            </div>
-          )}
+    <main className="flex min-h-screen items-center justify-center bg-paper-100 p-4">
+      <div className="w-full max-w-sm">
+        {/* The wordmark is the only place the product names itself. */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2.5">
+            <span
+              aria-hidden="true"
+              className="flex h-8 w-8 items-center justify-center rounded-[var(--radius)] bg-ink-900"
+            >
+              <span className="flex gap-[2px]">
+                <span className="block h-3.5 w-[3px] bg-stn-cyan" />
+                <span className="block h-3.5 w-[3px] bg-stn-magenta" />
+                <span className="block h-3.5 w-[3px] bg-stn-yellow" />
+              </span>
+            </span>
+            <span className="text-[length:calc(var(--base)*1.3)] font-semibold tracking-tight text-ink-900">
+              GravureTrace
+            </span>
+          </div>
+          <p className="mt-2 text-[length:calc(var(--base)*0.92)] text-ink-600">
+            Gravure print traceability. Sign in to continue.
+          </p>
+        </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="email">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              className="w-full rounded border border-border bg-background p-2 text-foreground outline-none focus:ring-2 focus:ring-ring"
-              placeholder="admin@gravuretrace.local"
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="password">
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              className="w-full rounded border border-border bg-background p-2 text-foreground outline-none focus:ring-2 focus:ring-ring"
-              placeholder="••••••••"
-              required
-            />
-          </div>
-          <button formAction={login} className="mt-2 rounded bg-primary p-2 text-primary-foreground font-semibold">
-            Sign In
-          </button>
-        </form>
+        <LoginForm />
+
+        <p className="mt-6 text-[length:calc(var(--base)*0.82)] text-steel-400">
+          Machine tablets sign in once with their machine account. Operators
+          identify themselves with a PIN afterwards.
+        </p>
       </div>
-    </div>
-  );
+    </main>
+  )
 }

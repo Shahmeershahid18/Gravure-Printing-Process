@@ -1,20 +1,23 @@
-import { createClient } from '@/utils/supabase/server'
-import { CustomerClient } from './client'
+import { requireRole, can } from "@/lib/auth"
+import { createClient } from "@/utils/supabase/server"
+import { MasterSection } from "@/components/masters/MasterSection"
+import { SectionHeading } from "@/components/ui/page-header"
+
+export const metadata = { title: "Customers" }
 
 export default async function CustomersPage() {
+  const profile = await requireRole("admin", "planner")
   const supabase = await createClient()
-  const { data: customers } = await supabase
-    .from('customers')
-    .select('*')
-    .order('name')
+  const { data } = await supabase.from("customers").select("*").order("name")
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Customers</h1>
-        <p className="text-muted-foreground">Manage customers for job files.</p>
-      </div>
-      <CustomerClient initialData={customers || []} />
-    </div>
+    <>
+      <SectionHeading>Customers</SectionHeading>
+      <MasterSection
+        table="customers"
+        rows={data ?? []}
+        canEdit={can.editMasters(profile.role)}
+      />
+    </>
   )
 }

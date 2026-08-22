@@ -1,0 +1,169 @@
+"use client"
+
+import * as React from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { cn } from "@/lib/utils"
+import type { Role } from "@/lib/roles"
+
+type Item = { href: string; label: string; roles?: Role[] }
+type Group = { heading: string; items: Item[] }
+
+/**
+ * Navigation is grouped the way the shop thinks, not the way the schema is
+ * laid out: what is running now, what the job is, what the plant owns, and
+ * what management asks about.
+ *
+ * Items a role cannot use are removed, not disabled. A disabled row still
+ * costs a scan on every visit and teaches nothing.
+ */
+const GROUPS: Group[] = [
+  {
+    heading: "Floor",
+    items: [
+      { href: "/dashboard", label: "Dashboard", roles: ["admin", "qc", "viewer", "supervisor", "planner"] },
+      { href: "/shift", label: "Shift board", roles: ["admin", "supervisor", "planner", "qc"] },
+      { href: "/runs", label: "Runs" },
+    ],
+  },
+  {
+    heading: "Work",
+    items: [
+      { href: "/jobs", label: "Job files" },
+      { href: "/issues", label: "Issues" },
+    ],
+  },
+  {
+    heading: "Plant",
+    items: [
+      { href: "/cylinders", label: "Cylinders" },
+      { href: "/inks", label: "Inks" },
+      { href: "/substrates", label: "Substrates" },
+    ],
+  },
+  {
+    heading: "Insight",
+    items: [{ href: "/reports", label: "Reports" }],
+  },
+  {
+    heading: "Setup",
+    items: [{ href: "/settings", label: "Settings", roles: ["admin", "planner"] }],
+  },
+]
+
+export function Sidebar({ role }: { role: Role }) {
+  const pathname = usePathname()
+  const [open, setOpen] = React.useState(false)
+
+  const groups = GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => !i.roles || i.roles.includes(role)),
+  })).filter((g) => g.items.length > 0)
+
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(href + "/")
+
+  const nav = (
+    <nav aria-label="Main" className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
+      {groups.map((g) => (
+        <div key={g.heading}>
+          <h2 className="mb-1.5 px-2 text-[length:calc(var(--base)*0.72)] font-semibold uppercase tracking-wide text-steel-400">
+            {g.heading}
+          </h2>
+          <ul className="space-y-0.5">
+            {g.items.map((i) => {
+              const active = isActive(i.href)
+              return (
+                <li key={i.href}>
+                  <Link
+                    href={i.href}
+                    onClick={() => setOpen(false)}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "flex min-h-[var(--tap)] items-center rounded-[var(--radius)] px-2",
+                      "text-[length:var(--base)] transition-colors",
+                      active
+                        ? "bg-ink-900 font-semibold text-paper-000"
+                        : "text-ink-600 hover:bg-paper-100 hover:text-ink-900"
+                    )}
+                  >
+                    {i.label}
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ))}
+    </nav>
+  )
+
+  return (
+    <>
+      {/* Desktop rail */}
+      <aside className="hidden w-56 shrink-0 flex-col border-r border-steel-200 bg-paper-000 lg:flex">
+        <Wordmark />
+        {nav}
+      </aside>
+
+      {/* Narrow screens: a drawer, because a planner checking a job from a
+          phone in the store should not get a broken desktop layout. */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Open navigation"
+        className="flex h-[var(--tap)] w-[var(--tap)] items-center justify-center border-r border-steel-200 bg-paper-000 text-ink-900 lg:hidden"
+      >
+        <span aria-hidden="true" className="space-y-1">
+          <span className="block h-px w-4 bg-current" />
+          <span className="block h-px w-4 bg-current" />
+          <span className="block h-px w-4 bg-current" />
+        </span>
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 bg-ink-900/40 lg:hidden"
+          onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}
+        >
+          <div className="flex h-full w-64 flex-col border-r border-steel-200 bg-paper-000">
+            <Wordmark onClose={() => setOpen(false)} />
+            {nav}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+function Wordmark({ onClose }: { onClose?: () => void }) {
+  return (
+    <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-steel-200 px-4">
+      <Link href="/dashboard" className="flex items-center gap-2.5">
+        <span
+          aria-hidden="true"
+          className="flex h-7 w-7 items-center justify-center rounded-[var(--radius)] bg-ink-900"
+        >
+          <span className="flex gap-[2px]">
+            <span className="block h-3 w-[3px] bg-stn-cyan" />
+            <span className="block h-3 w-[3px] bg-stn-magenta" />
+            <span className="block h-3 w-[3px] bg-stn-yellow" />
+          </span>
+        </span>
+        <span className="text-[length:calc(var(--base)*1.05)] font-semibold tracking-tight text-ink-900">
+          GravureTrace
+        </span>
+      </Link>
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close navigation"
+          className="text-ink-600 hover:text-ink-900"
+        >
+          Close
+        </button>
+      )}
+    </div>
+  )
+}

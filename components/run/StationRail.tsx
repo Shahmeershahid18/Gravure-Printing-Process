@@ -1,58 +1,146 @@
-import React from 'react';
+"use client"
 
-type StationStatus = 'complete' | 'pending' | 'issue' | 'idle';
-type StationData = {
-  no: number;
-  colourName: string;
-  status: StationStatus;
-  swatchVar: string;
-};
+import * as React from "react"
+import { cn } from "@/lib/utils"
+import {
+  STATE_GLYPH,
+  STATE_WORD,
+  stationState,
+  swatchFor,
+  type StationState,
+} from "@/lib/stations"
 
-const STATIONS: StationData[] = [
-  { no: 1, colourName: 'Cyan', status: 'complete', swatchVar: 'var(--stn-cyan)' },
-  { no: 2, colourName: 'Magenta', status: 'complete', swatchVar: 'var(--stn-magenta)' },
-  { no: 3, colourName: 'Yellow', status: 'pending', swatchVar: 'var(--stn-yellow)' },
-  { no: 4, colourName: 'Black', status: 'issue', swatchVar: 'var(--stn-black)' },
-  { no: 5, colourName: 'Ground', status: 'pending', swatchVar: 'var(--stn-ground)' },
-  { no: 6, colourName: 'Self 1', status: 'issue', swatchVar: 'var(--stn-self1)' },
-  { no: 7, colourName: 'Self 2', status: 'idle', swatchVar: 'var(--stn-self2)' },
-  { no: 8, colourName: 'White', status: 'idle', swatchVar: 'var(--stn-white)' },
-];
+export type RailStation = {
+  station_no: number
+  colour_name?: string | null
+  is_idle?: boolean | null
+  previous_issue_note?: string | null
+  running_viscosity_sec?: number | null
+  cylinder_id?: string | null
+  meters_run?: number | null
+}
 
-export function StationRail() {
+/**
+ * The station rail -- plan Section 4.3.
+ *
+ * A vertical rail of 8 segments down the left edge, one per print unit, in the
+ * same order as the physical machine. It is the one memorable element in the
+ * product, it comes from the machine rather than from a design system, and on
+ * the kiosk it doubles as navigation: tap a segment to jump to that station.
+ *
+ * It is a real list, not a decorative div -- Section 4.6.
+ */
+export function StationRail({
+  stations,
+  activeStation,
+  onSelect,
+  className,
+  compact = false,
+}: {
+  stations: RailStation[]
+  activeStation?: number | null
+  onSelect?: (stationNo: number) => void
+  className?: string
+  compact?: boolean
+}) {
+  // Always exactly 8 rows. No dynamic station count anywhere -- locked
+  // decision 7.
+  const rows = React.useMemo(() => {
+    const byNo = new Map(stations.map((s) => [s.station_no, s]))
+    return Array.from({ length: 8 }, (_, i) => {
+      const no = i + 1
+      return byNo.get(no) ?? { station_no: no, is_idle: true }
+    })
+  }, [stations])
+
   return (
-    <div className="flex flex-col gap-1 rounded-md border border-border bg-card p-2 w-max shadow-sm">
-      {STATIONS.map((st) => (
-        <div key={st.no} className="flex h-[var(--row-h)] items-center gap-3 px-2 rounded hover:bg-muted cursor-pointer transition-colors">
-          {/* Swatch cell */}
-          <div className="flex h-full py-1">
-            <div
-              className={`w-4 h-full rounded-sm border border-black/10 ${st.status === 'idle' ? 'bg-transparent border-dashed' : ''}`}
-              style={{ backgroundColor: st.status !== 'idle' ? st.swatchVar : 'transparent' }}
-            />
-          </div>
-          
-          {/* Number and Name */}
-          <div className="flex items-center gap-3 font-data text-[length:var(--base)]">
-            <span className={st.status === 'idle' ? 'text-steel-400' : 'text-foreground'}>{st.no}</span>
-            <span className={`w-24 ${st.status === 'idle' ? 'text-steel-400' : 'text-ink-600'}`}>
-              {st.colourName}
-            </span>
-          </div>
+    <nav aria-label="Print stations" className={className}>
+      <ol className="overflow-hidden rounded-[var(--radius)] border border-steel-200 bg-paper-000">
+        {rows.map((s) => {
+          const state: StationState = stationState(s)
+          const swatch = swatchFor(s.colour_name)
+          const active = activeStation === s.station_no
+          const interactive = Boolean(onSelect)
 
-          {/* Status Indicator */}
-          <div className="flex items-center gap-2 text-sm">
-            {st.status === 'complete' && <span className="text-signal-ok">●</span>}
-            {st.status === 'pending' && <span className="text-ink-600">○</span>}
-            {st.status === 'issue' && (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-signal-warn text-signal-warn text-xs font-bold">
-                !
+          const content = (
+            <>
+              {/* The swatch is the ink itself. It never carries text -- the
+                  yellow swatch would fail contrast (Section 4.6). */}
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "block w-2.5 shrink-0 self-stretch",
+                  s.is_idle && "opacity-25"
+                )}
+                style={{ backgroundColor: `var(${swatch.varName})` }}
+              />
+              <span
+                data-numeric=""
+                className="w-6 shrink-0 text-center text-ink-600"
+              >
+                {s.station_no}
               </span>
-            )}
-            {st.status === 'idle' && <span className="text-steel-400">—</span>}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+              {!compact && (
+                <span className="min-w-0 flex-1 truncate text-left text-ink-900">
+                  {s.colour_name ?? (
+                    <span className="text-steel-400">Not assigned</span>
+                  )}
+                </span>
+              )}
+              <span
+                className={cn(
+                  "flex shrink-0 items-center gap-1.5 pr-3",
+                  "text-[length:calc(var(--base)*0.82)]",
+                  state === "issue" && "text-signal-warn",
+                  state === "complete" && "text-signal-ok",
+                  state === "pending" && "text-ink-600",
+                  state === "idle" && "text-steel-400"
+                )}
+              >
+                <span aria-hidden="true">{STATE_GLYPH[state]}</span>
+                {!compact && <span>{STATE_WORD[state]}</span>}
+              </span>
+            </>
+          )
+
+          return (
+            <li key={s.station_no}>
+              {interactive ? (
+                <button
+                  type="button"
+                  onClick={() => onSelect?.(s.station_no)}
+                  aria-current={active ? "true" : undefined}
+                  aria-label={`Station ${s.station_no}, ${
+                    s.colour_name ?? "not assigned"
+                  }, ${STATE_WORD[state]}`}
+                  className={cn(
+                    "flex w-full items-center gap-2 border-b border-steel-200 text-left",
+                    "min-h-[var(--row-h)] transition-colors last:border-0",
+                    // The amber ring marks a station carrying a note from a
+                    // previous run.
+                    state === "issue" && "bg-signal-warn-bg",
+                    active
+                      ? "bg-paper-100 ring-2 ring-inset ring-ink-900"
+                      : "hover:bg-paper-100"
+                  )}
+                >
+                  {content}
+                </button>
+              ) : (
+                <div
+                  className={cn(
+                    "flex w-full items-center gap-2 border-b border-steel-200",
+                    "min-h-[var(--row-h)] last:border-0",
+                    state === "issue" && "bg-signal-warn-bg"
+                  )}
+                >
+                  {content}
+                </div>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+    </nav>
+  )
 }

@@ -1,122 +1,154 @@
-'use client'
+"use client"
 
-import { useEffect, useState } from 'react'
-import { getSyncQueue, removeSyncTask } from '@/lib/idb-queue'
-import { createClient } from '@/utils/supabase/client'
-import { Cloud, CloudOff, RefreshCw } from 'lucide-react'
+import * as React from "react"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/utils/supabase/client"
+import {
+  pending,
+  remove,
+  markFailed,
+  onQueueChange,
+  type QueuedWrite,
+} from "@/lib/offline/queue"
+import { cn } from "@/lib/utils"
 
+/** Writes that have failed this many times need a supervisor, not a retry. */
+const MAX_ATTEMPTS = 5
+const RETRY_MS = 15_000
+
+/**
+ * The sync loop and its banner.
+ *
+ * Flushes in queue order so a station's later edit never overtakes its earlier
+ * one. Conflicts surface to the supervisor, never to the operator, who has a
+ * press to run (plan Section 10.3).
+ */
 export function SyncManager() {
-  const [isOnline, setIsOnline] = useState(true)
-  const [queueLength, setQueueLength] = useState(0)
-  const [isSyncing, setIsSyncing] = useState(false)
+  const router = useRouter()
+  const [count, setCount] = React.useState(0)
+  const [stuck, setStuck] = React.useState(0)
+  const [online, setOnline] = React.useState(true)
+  const [syncing, setSyncing] = React.useState(false)
+  const running = React.useRef(false)
 
-  // Listen to network status
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-    
-    setIsOnline(navigator.onLine)
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
+  const refresh = React.useCallback(async () => {
+    const rows = await pending()
+    setCount(rows.length)
+    setStuck(rows.filter((r) => r.attempts >= MAX_ATTEMPTS).length)
   }, [])
 
-  // Process queue
-  useEffect(() => {
-    let interval: NodeJS.Timeout
-
-    const processQueue = async () => {
-      if (!isOnline || isSyncing) return
-      
-      const queue = await getSyncQueue()
-      setQueueLength(queue.length)
-      
-      if (queue.length === 0) return
-
-      setIsSyncing(true)
+  const flush = React.useCallback(async () => {
+    if (running.current || !navigator.onLine) return
+    running.current = true
+    setSyncing(true)
+    try {
       const supabase = createClient()
+      const rows = await pending()
+      let flushed = 0
 
-      for (const task of queue) {
-        try {
-          if (task.action === 'UPDATE_RUN_STATION') {
-            const { error } = await supabase
-              .from('run_stations')
-              .update(task.payload.updates)
-              .eq('id', task.payload.id)
-            
-            if (!error && task.id) {
-              await removeSyncTask(task.id)
-            }
-          } else if (task.action === 'ADD_OBSERVATION') {
-            let photo_path = null
-            
-            // Upload photo if present
-            if (task.payload.photo_base64) {
-              // Use fetch to convert data url to Blob in the browser
-              const res = await fetch(task.payload.photo_base64)
-              const blob = await res.blob()
-              const fileName = `${task.payload.job_file_id}/${Date.now()}.jpg`
-              
-              const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('observation_photos')
-                .upload(fileName, blob, {
-                  contentType: 'image/jpeg',
-                  upsert: true
-                })
-              
-              if (uploadError) {
-                console.error('Photo upload failed:', uploadError)
-                throw uploadError // Stop processing and retry later
-              }
-              photo_path = uploadData.path
-            }
-
-            // Clean up payload before insert
-            const { photo_base64, ...dbPayload } = task.payload
-            
-            const { error } = await supabase
-              .from('observations')
-              .insert({ ...dbPayload, photo_path })
-
-            if (!error && task.id) {
-              await removeSyncTask(task.id)
-            } else if (error) {
-              throw error
-            }
-          }
-        } catch (e) {
-          console.error('Sync failed for task', task, e)
-          break // Stop processing on error to maintain order
+      for (const row of rows) {
+        if (row.attempts >= MAX_ATTEMPTS) continue
+        const error = await apply(supabase, row)
+        if (error) {
+          await markFailed(row, error)
+          // Stop on the first failure: the queue is ordered, and pushing past
+          // a failed write would apply edits out of sequence.
+          break
         }
+        if (row.id !== undefined) await remove(row.id)
+        flushed++
       }
-      
-      setIsSyncing(false)
-      const newQueue = await getSyncQueue()
-      setQueueLength(newQueue.length)
+
+      if (flushed > 0) router.refresh()
+    } finally {
+      running.current = false
+      setSyncing(false)
+      await refresh()
     }
+  }, [refresh, router])
 
-    interval = setInterval(processQueue, 5000)
-    return () => clearInterval(interval)
-  }, [isOnline, isSyncing])
+  React.useEffect(() => {
+    setOnline(navigator.onLine)
+    void refresh()
+    void flush()
 
-  if (isOnline && queueLength === 0) return null
+    const onOnline = () => {
+      setOnline(true)
+      void flush()
+    }
+    const onOffline = () => setOnline(false)
+    window.addEventListener("online", onOnline)
+    window.addEventListener("offline", onOffline)
+    const unsub = onQueueChange(() => {
+      void refresh()
+      void flush()
+    })
+    const timer = setInterval(() => void flush(), RETRY_MS)
+
+    return () => {
+      window.removeEventListener("online", onOnline)
+      window.removeEventListener("offline", onOffline)
+      unsub()
+      clearInterval(timer)
+    }
+  }, [flush, refresh])
+
+  // Nothing pending and connected: the banner earns no space on the screen.
+  if (online && count === 0) return null
+
+  const tone = stuck > 0 ? "critical" : online ? "info" : "warn"
 
   return (
-    <div className="fixed bottom-4 right-4 bg-card border border-border shadow-lg rounded-full px-4 py-2 flex items-center gap-3 z-50">
-      {isOnline ? (
-        <>
-          <RefreshCw className={`w-4 h-4 text-primary ${isSyncing ? 'animate-spin' : ''}`} />
-          <span className="text-sm font-medium">Syncing {queueLength} items</span>
-        </>
-      ) : (
-        <>
-          <CloudOff className="w-4 h-4 text-destructive" />
-          <span className="text-sm font-medium text-destructive">Offline ({queueLength} unsaved)</span>
-        </>
+    <div
+      role="status"
+      className={cn(
+        "flex items-center justify-between gap-3 border-b px-[var(--gap)] py-2",
+        "text-[length:calc(var(--base)*0.86)]",
+        tone === "critical" && "border-signal-critical bg-signal-critical-bg text-signal-critical",
+        tone === "warn" && "border-signal-warn bg-signal-warn-bg text-signal-warn",
+        tone === "info" && "border-signal-info bg-signal-info-bg text-signal-info"
       )}
+    >
+      <span className="flex items-center gap-2">
+        <span aria-hidden="true">{tone === "critical" ? "■" : tone === "warn" ? "▲" : "◆"}</span>
+        <span className="font-semibold">
+          {stuck > 0 ? (
+            <>
+              <span data-numeric="">{stuck}</span> change{stuck === 1 ? "" : "s"} could not be
+              saved. Tell your supervisor — your other entries are safe.
+            </>
+          ) : !online ? (
+            <>
+              Working offline. <span data-numeric="">{count}</span> change
+              {count === 1 ? "" : "s"} waiting to sync. Keep entering.
+            </>
+          ) : (
+            <>
+              <span data-numeric="">{count}</span> change{count === 1 ? "" : "s"} syncing…
+            </>
+          )}
+        </span>
+      </span>
+      {syncing && <span className="text-[length:calc(var(--base)*0.8)]">Sending</span>}
     </div>
   )
+}
+
+/** Applies one queued write. Returns an error message, or null on success. */
+async function apply(
+  supabase: ReturnType<typeof createClient>,
+  row: QueuedWrite
+): Promise<string | null> {
+  try {
+    if (row.op === "insert") {
+      const { error } = await supabase.from(row.table).insert(row.payload)
+      return error?.message ?? null
+    }
+    let q = supabase.from(row.table).update(row.payload)
+    for (const [k, v] of Object.entries(row.match ?? {})) q = q.eq(k, v)
+    const { error } = await q
+    return error?.message ?? null
+  } catch (e) {
+    return e instanceof Error ? e.message : "Unknown error"
+  }
 }

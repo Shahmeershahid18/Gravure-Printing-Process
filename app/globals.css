@@ -1,62 +1,119 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* =============================================================================
+   GravureTrace design tokens -- plan.md Section 4.
+
+   The thesis: the interface is a viewing booth. Printers judge colour against
+   neutral grey, so the chrome is achromatic and the only saturated colour on
+   screen is data colour -- the 8 station ink swatches and the 4 status signals.
+   Nothing decorative is ever allowed to be colourful. A designer who wants a
+   colourful accent has to break a stated rule to do it, which is what makes
+   the rule hold under two years of feature requests.
+   ========================================================================== */
+
+:root {
+  /* -- Six neutrals ------------------------------------------------------- */
+  --ink-900:   #14161A;   /* primary text, kiosk surfaces */
+  --ink-600:   #4A5058;   /* secondary text */
+  --steel-400: #8B939C;   /* tertiary text, disabled */
+  --steel-200: #D9DDE1;   /* hairlines, borders */
+  --paper-100: #F2F4F5;   /* app background */
+  --paper-000: #FFFFFF;   /* cards, grid rows */
+
+  /* -- Four signals ------------------------------------------------------- */
+  --signal-ok:       #1F7A4D;
+  --signal-warn:     #B26A00;
+  --signal-critical: #B3261E;
+  --signal-info:     #1B5FA8;
+
+  /* Tinted grounds for signal surfaces. Kept near-white so a signal block
+     still reads as chrome, not as decoration. */
+  --signal-ok-bg:       #EDF6F1;
+  --signal-warn-bg:     #FBF3E6;
+  --signal-critical-bg: #FBEEED;
+  --signal-info-bg:     #EDF2F9;
+
+  /* -- Eight station swatches: the real inks, used only as swatches -------- */
+  --stn-cyan:    #00A0DF;
+  --stn-magenta: #E5007E;
+  --stn-yellow:  #FFDD00;
+  --stn-black:   #1A1A1A;
+  --stn-ground:  #8C8C8C;
+  --stn-white:   #FFFFFF;
+  --stn-self1:   #7B3FA0;
+  --stn-self2:   #C25E00;
+
+  /* -- Type --------------------------------------------------------------- */
+  /* Plex was drawn for technical and machine documentation. The mono rule is
+     functional: viscosity, meters, tensions and batch codes are compared down
+     a column, and proportional digits break that scan. */
+  --font-ui:   var(--font-plex-sans), "IBM Plex Sans", system-ui, sans-serif;
+  --font-data: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
+  --weight-regular: 400;
+  --weight-semibold: 600;
+
+  /* -- Density ------------------------------------------------------------
+     One component library, two densities, switched by a root variable.
+     Building two design systems for desktop and tablet is the failure mode. */
+  --base: 14px;
+  --row-h: 32px;
+  --tap: 40px;
+  --gap: 8px;
+
+  /* -- Everything else ---------------------------------------------------- */
+  --radius: 4px;          /* one value, everywhere */
+  --hairline: 1px solid var(--steel-200);
+
+  /* -- Semantic aliases --------------------------------------------------- */
+  --background: var(--paper-100);
+  --foreground: var(--ink-900);
+  --surface: var(--paper-000);
+  --muted-foreground: var(--ink-600);
+  --subtle-foreground: var(--steel-400);
+  --border: var(--steel-200);
+  --ring: var(--ink-900);
+}
+
+/* Kiosk density. The tablet is clamped near a press under mixed lighting and
+   operated with solvent on the gloves, so every target grows. */
+[data-shell="kiosk"] {
+  --base: 18px;
+  --row-h: 64px;
+  --tap: 64px;
+  --gap: 16px;
+}
+
+/* Daylight mode -- plan Section 4.6. For tablets near a window at noon.
+   Raises contrast rather than changing hue, so colour judgement is unaffected. */
+[data-daylight="on"] {
+  --ink-600: #2B3036;
+  --steel-400: #5C646D;
+  --steel-200: #A8B0B8;
+  --paper-100: #FFFFFF;
+  --background: #FFFFFF;
+  --signal-ok-bg: #FFFFFF;
+  --signal-warn-bg: #FFFFFF;
+  --signal-critical-bg: #FFFFFF;
+  --signal-info-bg: #FFFFFF;
+}
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-
   --color-ink-900: var(--ink-900);
   --color-ink-600: var(--ink-600);
   --color-steel-400: var(--steel-400);
   --color-steel-200: var(--steel-200);
   --color-paper-100: var(--paper-100);
   --color-paper-000: var(--paper-000);
+
   --color-signal-ok: var(--signal-ok);
   --color-signal-warn: var(--signal-warn);
   --color-signal-critical: var(--signal-critical);
   --color-signal-info: var(--signal-info);
+  --color-signal-ok-bg: var(--signal-ok-bg);
+  --color-signal-warn-bg: var(--signal-warn-bg);
+  --color-signal-critical-bg: var(--signal-critical-bg);
+  --color-signal-info-bg: var(--signal-info-bg);
+
   --color-stn-cyan: var(--stn-cyan);
   --color-stn-magenta: var(--stn-magenta);
   --color-stn-yellow: var(--stn-yellow);
@@ -65,124 +122,96 @@
   --color-stn-white: var(--stn-white);
   --color-stn-self1: var(--stn-self1);
   --color-stn-self2: var(--stn-self2);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-border: var(--border);
+
   --font-ui: var(--font-ui);
   --font-data: var(--font-data);
-}
 
-:root {
-  --background: var(--paper-100);
-  --foreground: var(--ink-900);
-  --card: var(--paper-000);
-  --card-foreground: var(--ink-900);
-  --popover: var(--paper-000);
-  --popover-foreground: var(--ink-900);
-  --primary: var(--ink-900);
-  --primary-foreground: var(--paper-000);
-  --secondary: var(--paper-100);
-  --secondary-foreground: var(--ink-900);
-  --muted: var(--paper-100);
-  --muted-foreground: var(--ink-600);
-  --accent: var(--paper-100);
-  --accent-foreground: var(--ink-900);
-  --destructive: var(--signal-critical);
-  --border: var(--steel-200);
-  --input: var(--steel-200);
-  --ring: var(--steel-400);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 4px;
-  --sidebar: var(--paper-100);
-  --sidebar-foreground: var(--ink-900);
-  --sidebar-primary: var(--ink-900);
-  --sidebar-primary-foreground: var(--paper-000);
-  --sidebar-accent: var(--paper-100);
-  --sidebar-accent-foreground: var(--ink-900);
-  --sidebar-border: var(--steel-200);
-  --sidebar-ring: var(--steel-400);
-
-  /* GravureTrace Tokens */
-  --ink-900:  #14161A;
-  --ink-600:  #4A5058;
-  --steel-400:#8B939C;
-  --steel-200:#D9DDE1;
-  --paper-100:#F2F4F5;
-  --paper-000:#FFFFFF;
-
-  --signal-ok:      #1F7A4D;
-  --signal-warn:    #B26A00;
-  --signal-critical:#B3261E;
-  --signal-info:    #1B5FA8;
-
-  --stn-cyan:#00A0DF; --stn-magenta:#E5007E; --stn-yellow:#FFDD00;
-  --stn-black:#1A1A1A; --stn-ground:#8C8C8C; --stn-white:#FFFFFF;
-  --stn-self1:#7B3FA0; --stn-self2:#C25E00;
-
-  --font-ui:   "IBM Plex Sans", system-ui, sans-serif;
-  --font-data: "IBM Plex Mono", ui-monospace, monospace;
-  --weight-regular: 400;
-  --weight-semibold: 600;
-
-  --base: 14px; --row-h: 32px; --tap: 40px; --gap: 8px;
-}
-
-[data-shell=kiosk] {
-  --base: 18px; --row-h: 64px; --tap: 64px; --gap: 16px;
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius);
+  --radius-xl: var(--radius);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--border);
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
-    @apply font-sans;
+    font-family: var(--font-ui);
+    font-size: var(--base);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-weight: var(--weight-regular);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Two font weights exist in the whole product. Anything asking for 500, 700
+     or 800 resolves to one of the two. */
+  .font-medium, .font-semibold, .font-bold { font-weight: var(--weight-semibold); }
+  .font-normal { font-weight: var(--weight-regular); }
+
+  h1, h2, h3, h4 { font-weight: var(--weight-semibold); }
+
+  /* Every number is mono so columns of figures align under a scan. */
+  .tabular, [data-numeric] {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Visible keyboard focus everywhere. The station grid must be fully
+     keyboard operable for supervisors correcting data at a desk. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius);
+  }
+
+  /* Depth is a hairline, not a shadow. */
+  ::placeholder { color: var(--subtle-foreground); }
+
+  /* Motion is nearly absent. On a shop floor tablet animation reads as lag. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
-/* Kiosk Density Scale */
-[data-shell="kiosk"] {
-  --base: 18px;
-  --row-h: 64px;
-  --tap: 64px;
-  --gap: 16px;
-  font-size: var(--base);
+@layer utilities {
+  /* The single permitted elevation: a hairline plus a whisper of shadow, and
+     only on bars that stick. */
+  .sticky-bar {
+    border-color: var(--border);
+    box-shadow: 0 1px 2px rgb(20 22 26 / 0.06);
+  }
+  .sticky-bar-top {
+    border-color: var(--border);
+    box-shadow: 0 -1px 2px rgb(20 22 26 / 0.06);
+  }
+}
+
+/* Print: the Pre Run Briefing goes to A4 for the floor. */
+@media print {
+  @page { size: A4; margin: 14mm; }
+  html { font-size: 11px; }
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .print-break { break-inside: avoid; }
+  a { text-decoration: none; color: inherit; }
 }

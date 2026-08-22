@@ -1,20 +1,27 @@
-import { createClient } from '@/utils/supabase/server'
-import { MachineClient } from './client'
+import { requireRole, can } from "@/lib/auth"
+import { createClient } from "@/utils/supabase/server"
+import { MasterSection } from "@/components/masters/MasterSection"
+import { SectionHeading } from "@/components/ui/page-header"
+
+export const metadata = { title: "Machines" }
 
 export default async function MachinesPage() {
+  const profile = await requireRole("admin", "planner")
   const supabase = await createClient()
-  const { data: machines } = await supabase
-    .from('machines')
-    .select('*')
-    .order('code')
+  const { data } = await supabase.from("machines").select("*").order("code")
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Machines</h1>
-        <p className="text-muted-foreground">Manage your printing machines and their capabilities.</p>
-      </div>
-      <MachineClient initialData={machines || []} />
-    </div>
+    <>
+      <SectionHeading>Machines</SectionHeading>
+      <p className="mb-4 text-[length:calc(var(--base)*0.86)] text-ink-600">
+        Every machine has exactly 8 print stations. That is a hard constraint in
+        the database, not a default.
+      </p>
+      <MasterSection
+        table="machines"
+        rows={data ?? []}
+        canEdit={can.editMasters(profile.role)}
+      />
+    </>
   )
 }

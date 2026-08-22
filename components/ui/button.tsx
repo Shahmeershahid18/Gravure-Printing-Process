@@ -1,58 +1,64 @@
-import { Button as ButtonPrimitive } from "@base-ui/react/button"
+import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
-
 import { cn } from "@/lib/utils"
 
+/**
+ * One primary action per screen -- plan Section 4.4, rule 1.
+ * Exactly one `primary` button per screen. Everything else is `outline`,
+ * `ghost` or `link`. `danger` is reserved for destructive confirmation.
+ *
+ * Heights key off --tap, so the same component renders at 40px on desktop and
+ * 64px on the kiosk from a single source.
+ */
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  [
+    "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap",
+    "rounded-[var(--radius)] border text-[length:var(--base)] font-semibold",
+    "transition-colors duration-100 select-none",
+    "disabled:pointer-events-none disabled:opacity-50",
+    "[&_svg]:pointer-events-none [&_svg]:shrink-0",
+  ].join(" "),
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        primary:
+          "border-ink-900 bg-ink-900 text-paper-000 hover:bg-ink-600 hover:border-ink-600",
         outline:
-          "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "border-steel-200 bg-paper-000 text-ink-900 hover:bg-paper-100",
         ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
-        destructive:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
-        link: "text-primary underline-offset-4 hover:underline",
+          "border-transparent bg-transparent text-ink-600 hover:bg-paper-100 hover:text-ink-900",
+        link:
+          "border-transparent bg-transparent text-ink-900 underline underline-offset-4 hover:text-ink-600 px-0",
+        danger:
+          "border-signal-critical bg-signal-critical text-paper-000 hover:opacity-90",
       },
       size: {
-        default:
-          "h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        icon: "size-8",
-        "icon-xs":
-          "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm":
-          "size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg",
-        "icon-lg": "size-9",
+        // Minimum touch target: 40px desktop, 64px kiosk -- Section 4.6.
+        default: "h-[var(--tap)] px-4",
+        sm: "h-[calc(var(--tap)*0.8)] px-3 text-[length:calc(var(--base)*0.92)]",
+        lg: "h-[calc(var(--tap)*1.25)] px-8 text-[length:calc(var(--base)*1.15)]",
+        icon: "h-[var(--tap)] w-[var(--tap)] px-0",
+        full: "h-[var(--tap)] w-full px-4",
       },
     },
-    defaultVariants: {
-      variant: "default",
-      size: "default",
-    },
+    defaultVariants: { variant: "outline", size: "default" },
   }
 )
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
-  return (
-    <ButtonPrimitive
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {}
+
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, type = "button", ...props }, ref) => (
+    <button
+      ref={ref}
+      type={type}
+      className={cn(buttonVariants({ variant, size }), className)}
       {...props}
     />
   )
-}
+)
+Button.displayName = "Button"
 
 export { Button, buttonVariants }

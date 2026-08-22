@@ -1,185 +1,316 @@
-import { createClient } from '@/utils/supabase/server'
-import { notFound } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import Link from "next/link"
+import { notFound } from "next/navigation"
+import { requireProfile, can } from "@/lib/auth"
+import { createClient } from "@/utils/supabase/server"
+import { PageHeader, SectionHeading } from "@/components/ui/page-header"
+import { Card, CardBody } from "@/components/ui/card"
+import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table"
+import { Badge, conditionTone, severityTone, humanise } from "@/components/ui/badge"
+import { EmptyState } from "@/components/ui/empty-state"
+import { DataPoint } from "@/components/ui/field"
+import { WearBar, wearWord } from "@/components/cylinder/WearGauge"
+import { Alert } from "@/components/ui/alert"
+import { CylinderEventForm } from "./event-form"
+import { meters, decimal, shortDate, relativeDays } from "@/lib/format"
+import { one } from "@/lib/rel"
 
-export default async function CylinderDetailPage({ params }: { params: { cylinderId: string } }) {
+export const metadata = { title: "Cylinder" }
+
+/**
+ * The cylinder lifetime page -- plan Section 10.5.
+ *
+ * Both meter counts are shown, with the re-engrave date marked in the ledger,
+ * so nobody is confused about why the surface figure dropped while the
+ * lifetime figure kept climbing.
+ */
+export default async function CylinderPage({
+  params,
+}: {
+  params: Promise<{ cylinderId: string }>
+}) {
+  const { cylinderId } = await params
+  const profile = await requireProfile()
   const supabase = await createClient()
 
-  const { data: cylinder } = await supabase
-    .from('v_cylinder_ledger')
-    .select(`
-      *,
-      customers (name),
-      suppliers (name),
-      cylinder_events (
-        id,
-        event_type,
-        event_date,
-        meters_at_event,
-        description,
-        cost,
-        currency,
-        suppliers (name)
-      )
-    `)
-    .eq('id', params.cylinderId)
-    .single()
+  const { data: c } = await supabase
+    .from("v_cylinder_summary")
+    .select("*")
+    .eq("id", cylinderId)
+    .maybeSingle()
 
-  if (!cylinder) return notFound()
+  if (!c) notFound()
 
-  const wear = cylinder.wear_percentage || 0
-  let color = 'bg-emerald-500'
-  if (wear > 80) color = 'bg-destructive'
-  else if (wear > 60) color = 'bg-amber-500'
+  const [{ data: detail }, { data: history }, { data: events }, { data: issues }, { data: suppliers }] =
+    await Promise.all([
+      supabase
+        .from("cylinders")
+        .select("*, suppliers(name), customers(name)")
+        .eq("id", cylinderId)
+        .maybeSingle(),
+      supabase
+        .from("v_cylinder_run_history")
+        .select("*")
+        .eq("cylinder_id", cylinderId)
+        .order("run_date", { ascending: false }),
+      supabase
+        .from("cylinder_events")
+        .select("*, suppliers(name)")
+        .eq("cylinder_id", cylinderId)
+        .order("event_date", { ascending: false }),
+      supabase
+        .from("observations")
+        .select("id, title, area, severity, observed_at, job_file_id, run_id, description")
+        .eq("cylinder_id", cylinderId)
+        .order("observed_at", { ascending: false }),
+      supabase.from("suppliers").select("id, name").order("name"),
+    ])
 
-  const events = [...(cylinder.cylinder_events || [])].sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime())
-
-  const { data: runHistory } = await supabase
-    .from('v_cylinder_run_history')
-    .select('*')
-    .eq('cylinder_id', params.cylinderId)
-    .order('run_date', { ascending: false })
+  const surfacePct = Number(c.life_used_pct ?? 0)
+  const excluded = ["with_customer", "at_engraver", "scrapped"].includes(c.status)
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-8">
-      {/* Header Info */}
-      <div className="space-y-4">
-        <h1 className="text-3xl font-bold flex items-center gap-4">
-          {cylinder.cylinder_no}
-          <span className="text-muted-foreground font-normal">·</span>
-          {cylinder.colour_name}
-          <span className="text-muted-foreground font-normal">·</span>
-          <span className="capitalize text-xl font-normal">
-            {cylinder.ownership} {cylinder.customers ? `(${cylinder.customers.name})` : ''}
-          </span>
-        </h1>
-        
-        <div className="flex gap-4 text-sm text-muted-foreground">
-          <span>Engraved {cylinder.engraving_date}</span>
-          <span>·</span>
-          <span>{cylinder.circumference_mm} mm circ</span>
-          <span>·</span>
-          <span>{cylinder.screen_lpi} LPI</span>
-          <span>·</span>
-          <span>{cylinder.stylus_angle}° stylus</span>
-        </div>
+    <>
+      <PageHeader
+        breadcrumbs={[{ label: "Cylinders", href: "/cylinders" }, { label: c.cylinder_no }]}
+        title={c.cylinder_no}
+        subtitle={
+          <>
+            {c.colour_name ?? "No colour recorded"} ·{" "}
+            {c.ownership === "customer"
+              ? `Customer owned${c.customer_name ? ` (${c.customer_name})` : ""}`
+              : "Company owned"}
+            {detail?.engraving_date ? ` · Engraved ${shortDate(detail.engraving_date)}` : ""}
+          </>
+        }
+      />
 
-        <div className="text-sm">
-          Life rule: max {cylinder.life_limit?.toLocaleString()} m
-        </div>
-
-        {/* Big Wear Bar */}
-        <div className="pt-2">
-          <div className="w-full flex items-center gap-4 mb-2">
-            <div className="flex-1 h-6 bg-slate-200 overflow-hidden relative">
-              <div 
-                className={`h-full ${color}`} 
-                style={{ width: `${Math.min(wear, 100)}%` }} 
-              />
-            </div>
-            <div className="text-lg font-mono font-medium text-right shrink-0 w-[240px]">
-              {cylinder.current_meters?.toLocaleString()} / {cylinder.life_limit?.toLocaleString()} m
-            </div>
-            <div className="text-lg font-mono font-bold shrink-0 w-16 text-right">
-              {Math.round(wear)}%
-            </div>
-          </div>
-          <div className="flex gap-4 text-sm mt-3">
-            <span className="flex items-center gap-2">
-              <span className="text-muted-foreground">Status:</span>
-              <Badge variant={cylinder.status === 'in_store' ? 'outline' : 'secondary'}>
-                {cylinder.status.replace('_', ' ')}
-              </Badge>
-            </span>
-            <span className="flex items-center gap-2">
-              <span className="text-muted-foreground">Condition:</span>
-              <span className="capitalize font-medium">{cylinder.condition}</span>
-            </span>
-          </div>
-        </div>
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <Badge tone={conditionTone(c.condition)}>{humanise(c.condition)}</Badge>
+        <Badge tone="neutral" glyph={false}>{humanise(c.status)}</Badge>
+        {c.screen_lpi && <Badge tone="info" glyph={false}>{c.screen_lpi} LPI</Badge>}
       </div>
 
-      <div className="grid grid-cols-1 gap-8">
-        {/* Running History */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Running History</CardTitle>
-            <CardDescription>Records of jobs run with this cylinder.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!runHistory || runHistory.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No run history found.</p>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-12 gap-4 text-sm font-bold text-muted-foreground border-b pb-2">
-                  <div className="col-span-2">Job File</div>
-                  <div className="col-span-1">Mc</div>
-                  <div className="col-span-1">Run</div>
-                  <div className="col-span-2">Date</div>
-                  <div className="col-span-2 text-right">This Run</div>
-                  <div className="col-span-2 text-right">Cumulative</div>
-                  <div className="col-span-2">Note</div>
-                </div>
-                {runHistory.map((rh: any) => (
-                  <div key={`${rh.run_id}`} className="grid grid-cols-12 gap-4 text-sm border-b pb-2 last:border-0">
-                    <div className="col-span-2 font-medium">{rh.job_file_no}</div>
-                    <div className="col-span-1 text-muted-foreground">{rh.machine_code}</div>
-                    <div className="col-span-1 text-muted-foreground">{rh.run_no}</div>
-                    <div className="col-span-2 text-muted-foreground">{rh.run_date}</div>
-                    <div className="col-span-2 text-right">{rh.this_run_meters?.toLocaleString() || 0} m</div>
-                    <div className="col-span-2 text-right font-medium">{rh.cumulative_meters?.toLocaleString()} m</div>
-                    <div className="col-span-2 text-muted-foreground truncate" title={rh.observation}>{rh.observation}</div>
-                  </div>
-                ))}
-                
-                <div className="grid grid-cols-12 gap-4 text-sm border-t pt-2 text-muted-foreground">
-                  <div className="col-span-6 text-right font-medium">Opening reading at import</div>
-                  <div className="col-span-2"></div>
-                  <div className="col-span-2 text-right">{cylinder.opening_meters?.toLocaleString()} m</div>
-                  <div className="col-span-2"></div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {excluded && (
+        <Alert tone="info" title="Excluded from wear alerts" className="mb-6">
+          This cylinder is {humanise(c.status).toLowerCase()}, so it is not on a
+          press to be pulled off one. Its meters still accrue when it runs.
+        </Alert>
+      )}
 
-        {/* Service Events */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Service Events</CardTitle>
-            <CardDescription>Maintenance, plating, and movement history.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {events.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No events recorded.</p>
+      {!excluded && surfacePct >= 80 && (
+        <Alert
+          tone={surfacePct >= 95 ? "critical" : "warn"}
+          title={wearWord(surfacePct)}
+          className="mb-6"
+        >
+          The printing surface has run {meters(c.surface_meters)} m of its{" "}
+          {meters(c.life_limit_meters)} m limit. Re-engraving resets this figure;
+          the lifetime total keeps climbing for costing and base fatigue.
+        </Alert>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <Card>
+            <CardBody className="space-y-4">
+              <div>
+                <div className="mb-2 flex items-baseline justify-between gap-3">
+                  <h2 className="text-[length:calc(var(--base)*0.8)] font-semibold uppercase tracking-wide text-ink-600">
+                    Surface life
+                  </h2>
+                  <span className="text-[length:calc(var(--base)*0.82)] text-steel-400">
+                    {c.surface_since
+                      ? `Since the surface was restored on ${shortDate(c.surface_since)}`
+                      : "No engrave event recorded, so opening meters count toward the surface"}
+                  </span>
+                </div>
+                <WearBar
+                  used={Number(c.surface_meters ?? 0)}
+                  limit={Number(c.life_limit_meters ?? 0)}
+                  pctUsed={surfacePct}
+                />
+              </div>
+
+              <div className="grid gap-4 border-t border-steel-200 pt-4 sm:grid-cols-4">
+                <DataPoint label="Lifetime meters" value={`${meters(c.lifetime_meters)} m`} />
+                <DataPoint label="Opening at import" value={`${meters(detail?.opening_meters)} m`} />
+                <DataPoint label="Runs" value={c.run_count} />
+                <DataPoint label="Jobs" value={c.job_count} />
+                <DataPoint label="Last used" value={shortDate(c.last_used_on)} />
+                <DataPoint label="Last cleaning" value={shortDate(c.last_cleaning)} />
+                <DataPoint label="Last repair" value={shortDate(c.last_repair)} />
+                <DataPoint label="Major issues" value={c.major_issue_count} />
+              </div>
+            </CardBody>
+          </Card>
+
+          <section>
+            <SectionHeading>Running history</SectionHeading>
+            {(history ?? []).length === 0 ? (
+              <Card>
+                <EmptyState title="This cylinder has not run yet. Meters accrue only through the station grid, never by typing a cumulative." />
+              </Card>
             ) : (
-              <div className="space-y-4">
-                {events.map(ev => (
-                  <div key={ev.id} className="grid grid-cols-12 gap-4 text-sm border-b pb-4 last:border-0">
-                    <div className="col-span-2 text-muted-foreground font-mono">{ev.event_date}</div>
-                    <div className="col-span-2 font-medium capitalize">{ev.event_type.replace(/_/g, ' ')}</div>
-                    <div className="col-span-3 text-muted-foreground">
-                      at {ev.meters_at_event?.toLocaleString() || 0} m
-                    </div>
-                    <div className="col-span-3 truncate">
-                      {ev.suppliers?.name || 'In house'}
-                    </div>
-                    <div className="col-span-2 text-right">
-                      {ev.cost ? `${ev.currency} ${ev.cost.toLocaleString()}` : ''}
-                    </div>
-                    {ev.description && (
-                      <div className="col-span-12 text-muted-foreground mt-1">
-                        ↳ {ev.description}
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Job file</TH>
+                    <TH>Job no</TH>
+                    <TH>Machine</TH>
+                    <TH numeric>Run</TH>
+                    <TH>Date</TH>
+                    <TH numeric>This run</TH>
+                    <TH numeric>Cumulative</TH>
+                    <TH>Note</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {(history ?? []).map((h, i) => (
+                    <TR key={`${h.run_id}-${i}`}>
+                      <TD>
+                        <Link href={`/jobs/${h.job_file_id}`} data-numeric="" className="text-ink-900 hover:underline">
+                          {h.job_file_no}
+                        </Link>
+                      </TD>
+                      <TD><span data-numeric="">{h.job_no}</span></TD>
+                      <TD><span data-numeric="">{h.machine_code}</span></TD>
+                      <TD numeric>
+                        <Link href={`/runs/${h.run_id}`} data-numeric="" className="text-ink-900 hover:underline">
+                          {h.run_no}
+                        </Link>
+                      </TD>
+                      <TD><span data-numeric="">{shortDate(h.run_date)}</span></TD>
+                      <TD numeric>{meters(h.this_run_meters)}</TD>
+                      <TD numeric>{meters(h.cumulative_meters)}</TD>
+                      <TD className="max-w-64 text-[length:calc(var(--base)*0.86)]">
+                        {h.observation ?? "—"}
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            )}
+            <p className="mt-2 text-[length:calc(var(--base)*0.82)] text-steel-400">
+              Cumulative includes the opening balance of {meters(detail?.opening_meters)} m
+              carried over at import.
+            </p>
+          </section>
+
+          <section>
+            <SectionHeading>Linked issues</SectionHeading>
+            {(issues ?? []).length === 0 ? (
+              <Card>
+                <EmptyState title="Nothing has been blamed on this cylinder." />
+              </Card>
+            ) : (
+              <Card>
+                <ul className="divide-y divide-steel-200">
+                  {(issues ?? []).map((o) => (
+                    <li key={o.id} className="p-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-ink-900">{o.title}</span>
+                        <Badge tone={severityTone(o.severity)}>{humanise(o.severity)}</Badge>
+                        <span className="text-[length:calc(var(--base)*0.8)] text-steel-400">
+                          {humanise(o.area)} · {relativeDays(o.observed_at)}
+                        </span>
                       </div>
-                    )}
+                      {o.description && (
+                        <p className="mt-1 text-[length:calc(var(--base)*0.9)] text-ink-600">
+                          {o.description}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
+          </section>
+        </div>
+
+        <div className="space-y-6">
+          <section>
+            <SectionHeading>Specification</SectionHeading>
+            <Card>
+              <CardBody className="space-y-3">
+                <DataPoint label="Base number" value={detail?.base_no} />
+                <DataPoint label="Circumference" value={detail?.circumference_mm ? `${decimal(detail.circumference_mm)} mm` : null} />
+                <DataPoint label="Face width" value={detail?.face_width_mm ? `${decimal(detail.face_width_mm)} mm` : null} />
+                <DataPoint label="Screen" value={c.screen_lpi ? `${c.screen_lpi} LPI` : null} />
+                <DataPoint label="Stylus angle" value={detail?.stylus_angle ? `${decimal(detail.stylus_angle)}°` : null} />
+                <DataPoint label="Cell depth" value={detail?.cell_depth_micron ? `${decimal(detail.cell_depth_micron)} µ` : null} />
+                <DataPoint label="Engraver" value={one<{ name: string }>(detail?.suppliers)?.name} numeric={false} />
+                <DataPoint label="Location" value={detail?.location} numeric={false} />
+                <DataPoint
+                  label="Life limit"
+                  value={`${meters(c.life_limit_meters)} m${detail?.life_limit_override ? " (override)" : " (by rule)"}`}
+                />
+                {detail?.notes && (
+                  <div className="border-t border-steel-200 pt-3">
+                    <p className="text-[length:calc(var(--base)*0.86)] text-ink-900">{detail.notes}</p>
                   </div>
-                ))}
+                )}
+              </CardBody>
+            </Card>
+          </section>
+
+          <section>
+            <SectionHeading>Service events</SectionHeading>
+            <Card>
+              {(events ?? []).length === 0 ? (
+                <EmptyState title="No events recorded. Log the engrave date so surface life has a start point." />
+              ) : (
+                <ul className="divide-y divide-steel-200">
+                  {(events ?? []).map((e) => {
+                    const restores = ["engraved", "re_engraved", "chrome_plated"].includes(e.event_type)
+                    return (
+                      <li
+                        key={e.id}
+                        className={restores ? "bg-signal-info-bg p-3" : "p-3"}
+                      >
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <span className="font-semibold text-ink-900">
+                            {humanise(e.event_type)}
+                          </span>
+                          <span data-numeric="" className="text-[length:calc(var(--base)*0.8)] text-ink-600">
+                            {shortDate(e.event_date)}
+                          </span>
+                        </div>
+                        <p data-numeric="" className="text-[length:calc(var(--base)*0.82)] text-ink-600">
+                          at {meters(e.meters_at_event)} m
+                          {one<{ name: string }>(e.suppliers)?.name
+                            ? ` · ${(e.suppliers as { name: string }).name}`
+                            : ""}
+                          {e.cost ? ` · ${e.currency ?? "PKR"} ${decimal(e.cost, 0)}` : ""}
+                        </p>
+                        {restores && (
+                          <p className="text-[length:calc(var(--base)*0.78)] text-signal-info">
+                            Surface life reset from here
+                          </p>
+                        )}
+                        {e.description && (
+                          <p className="mt-1 text-[length:calc(var(--base)*0.86)] text-ink-900">
+                            {e.description}
+                          </p>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </Card>
+
+            {can.editCylinders(profile.role) && (
+              <div className="mt-4">
+                <CylinderEventForm
+                  cylinderId={cylinderId}
+                  currentMeters={Number(c.lifetime_meters ?? 0)}
+                  suppliers={(suppliers ?? []).map((s) => ({ value: s.id, label: s.name }))}
+                />
               </div>
             )}
-          </CardContent>
-        </Card>
+          </section>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
