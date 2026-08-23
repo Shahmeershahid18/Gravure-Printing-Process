@@ -115,7 +115,9 @@ export function MasterSection({
             { header: "Status", accessorKey: "is_active", cell: (r) => <Badge tone={r.is_active ? "ok" : "neutral"}>{r.is_active ? "In use" : "Retired"}</Badge> },
           ],
           fields: [
-            { name: "name", label: "Name", required: true, half: true, lockOnEdit: true },
+            // Renaming is now safe: the database carries the new name into
+            // every station, cylinder and ink that referenced the old one.
+            { name: "name", label: "Name", required: true, half: true },
             { name: "sort_order", label: "Sort order", type: "number", half: true, hint: "Lower shows first in the grid." },
             { name: "is_active", label: "In use", type: "switch", half: true },
           ],
@@ -274,7 +276,8 @@ export function MasterSection({
       canEdit={canEdit}
       entityName={config.entityName}
       emptyMessage={config.empty}
-      save={(values) => saveMaster(table, values)}
+      keyField={table === "colour_names" ? "name" : "id"}
+      save={(values, originalKey) => saveMaster(table, values, originalKey)}
     />
   )
 }

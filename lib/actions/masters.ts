@@ -207,7 +207,21 @@ function permitted(table: MasterTableName, role: Parameters<typeof can.editMaste
  */
 export async function saveMaster(
   table: MasterTableName,
-  values: Record<string, unknown>
+  values: Record<string, unknown>,
+  /**
+   * The key of the row being edited, or undefined when creating.
+   *
+   * Most of these tables have a surrogate `id`, so "is this an update?" could
+   * be read off the values. `colour_names` cannot: its key is the name itself.
+   * Inferring the answer from `values.name` meant a brand new colour looked
+   * exactly like an edit of a colour with that name, so the insert became an
+   * UPDATE matching nothing -- PostgREST answers 204 to that, so it reported
+   * success and created no row. It also made renaming impossible, because the
+   * new name was used to find the old row.
+   *
+   * The caller knows which it is. It says so.
+   */
+  originalKey?: string
 ): Promise<SaveResult> {
   const profile = await requireProfile()
   const def = TABLES[table]
@@ -228,7 +242,11 @@ export async function saveMaster(
 
   const supabase = await createClient()
   const keyColumn = "key" in def ? (def.key as string) : "id"
-  const id = values.id ?? values[keyColumn]
+
+  // An edit targets the row it started from. On a natural-key table that is
+  // the only way a rename can work: the WHERE has to name the old value while
+  // the SET carries the new one.
+  const target = originalKey ?? (values.id as string | undefined)
 
   // The table name is a union here, so the generated per-table insert types
   // collapse to their intersection. Zod has already validated the shape
@@ -236,9 +254,21 @@ export async function saveMaster(
   const row = parsed.data as Record<string, unknown>
   const q = supabase.from(table)
 
-  const { error } = id
-    ? await q.update(row).eq(keyColumn, id as string)
-    : await q.insert(row)
+  // On insert, a field the user left blank must be omitted rather than sent as
+  // NULL. colour_names.sort_order is `not null default 100`: sending NULL
+  // fails the not-null constraint, so "Add colour" refused every colour whose
+  // sort order was left blank -- which the form does not mark as required.
+  // Omitting the key lets the column default apply, and for a genuinely
+  // nullable column the result is NULL either way.
+  //
+  // On update the opposite holds: an explicit null is how a field gets cleared.
+  const insertRow = Object.fromEntries(
+    Object.entries(row).filter(([, v]) => v !== null && v !== undefined)
+  )
+
+  const { error } = target
+    ? await q.update(row).eq(keyColumn, target)
+    : await q.insert(insertRow)
 
   if (error) return { ok: false, error: friendly(error.message, def.label) }
 

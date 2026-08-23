@@ -40,14 +40,21 @@ export function MasterTable({
   canEdit,
   entityName,
   emptyMessage,
+  keyField = "id",
 }: {
   rows: MasterRow[]
   columns: Column<MasterRow>[]
   fields: FieldSpec[]
-  save: (values: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>
+  /** `originalKey` is the key of the row being edited, absent when creating. */
+  save: (
+    values: Record<string, unknown>,
+    originalKey?: string
+  ) => Promise<{ ok: boolean; error?: string }>
   canEdit: boolean
   entityName: string
   emptyMessage: string
+  /** Column holding this table's key. "id" everywhere except colour names. */
+  keyField?: string
 }) {
   const router = useRouter()
   const [editing, setEditing] = React.useState<MasterRow | null>(null)
@@ -79,7 +86,13 @@ export function MasterTable({
   const submit = async () => {
     setBusy(true)
     setError(null)
-    const res = await save({ ...values, id: editing?.id })
+    // Natural-key tables have no id, so the row's own key is what an update
+    // must be aimed at -- and it has to be the value it had before the dialog
+    // opened, or a rename would look for the row under its new name.
+    const res = await save(
+      { ...values, id: editing?.id },
+      editing ? String(editing[keyField] ?? editing.id ?? "") || undefined : undefined
+    )
     setBusy(false)
     if (!res.ok) return setError(res.error ?? `The ${entityName} could not be saved.`)
     setOpen(false)

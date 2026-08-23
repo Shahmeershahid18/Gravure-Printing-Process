@@ -29,26 +29,48 @@ export function Dialog({
   const panelRef = React.useRef<HTMLDivElement>(null)
   const openerRef = React.useRef<Element | null>(null)
 
+  /**
+   * Held in a ref so the effect below does not depend on it.
+   *
+   * Every caller passes an inline arrow -- `onClose={() => setOpen(false)}` --
+   * which is a new function on every render. With onClose in the dependency
+   * array the whole effect tore down and re-ran on each keystroke: the cleanup
+   * threw focus back to the opener, the re-run then focused the first element
+   * in the panel, and the character after that went to a button instead of the
+   * field. A space on a focused button is a click, so typing a two-word value
+   * closed the dialog. Every dialog in the product was affected.
+   */
+  const onCloseRef = React.useRef(onClose)
+  React.useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   React.useEffect(() => {
     if (!open) return
     openerRef.current = document.activeElement
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
+      if (e.key === "Escape") onCloseRef.current()
     }
     document.addEventListener("keydown", onKey)
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = "hidden"
-    // Move focus into the panel so the modal is operable from the keyboard.
-    const first = panelRef.current?.querySelector<HTMLElement>(
-      'input,select,textarea,button,[tabindex]:not([tabindex="-1"])'
+
+    // The first *field*, not merely the first focusable thing. Close sits
+    // first in the DOM, and opening a form with the cancel button focused
+    // invites exactly the wrong keystroke.
+    const panel = panelRef.current
+    const field = panel?.querySelector<HTMLElement>(
+      "input:not([disabled]),select:not([disabled]),textarea:not([disabled])"
     )
-    first?.focus()
+    ;(field ?? panel)?.focus()
+
     return () => {
       document.removeEventListener("keydown", onKey)
       document.body.style.overflow = prevOverflow
       ;(openerRef.current as HTMLElement | null)?.focus?.()
     }
-  }, [open, onClose])
+    // Deliberately keyed on `open` alone: see onCloseRef above.
+  }, [open])
 
   if (!open) return null
 
@@ -63,6 +85,7 @@ export function Dialog({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         aria-label={title}
         className={cn(
           "w-full rounded-[var(--radius)] border border-steel-200 bg-paper-000",
