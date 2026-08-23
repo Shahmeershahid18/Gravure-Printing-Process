@@ -64,8 +64,13 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
     summary: `Signed in as ${profile?.role ?? "viewer"}`,
   })
 
+  // Asked once, here, rather than being carried in the session: this is the
+  // only moment the answer changes where the user goes, and it costs one small
+  // query on a path that already makes several.
+  const { data: superadmin } = await supabase.rpc("fn_is_superadmin")
+
   revalidatePath("/", "layout")
-  redirect(landingFor((profile?.role as Role) ?? "viewer"))
+  redirect(landingFor((profile?.role as Role) ?? "viewer", superadmin === true))
 }
 
 /**

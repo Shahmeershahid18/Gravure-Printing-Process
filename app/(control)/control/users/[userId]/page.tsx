@@ -1,15 +1,23 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
+import {
+  ActivityIcon,
+  HistoryIcon,
+  ClockIcon,
+  KeyRoundIcon,
+  FileSearchIcon,
+  ShieldIcon,
+} from "lucide-react"
 import { getUserDetail } from "@/lib/actions/control"
-import { PageHeader, SectionHeading } from "@/components/ui/page-header"
-import { Card, CardBody } from "@/components/ui/card"
+import { PageHeader } from "@/components/ui/page-header"
 import { Badge } from "@/components/ui/badge"
-import { EmptyState } from "@/components/ui/empty-state"
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table"
+import { buttonVariants } from "@/components/ui/button"
 import { dateTime, num } from "@/lib/format"
 import { relativeTime } from "@/lib/notifications"
 import { roleLabel, type Role } from "@/lib/roles"
 import { ActivityRows } from "@/components/control/ActivityRows"
+import { Stat, Panel, Quiet } from "@/components/control/ui"
 
 export const metadata = { title: "Not found" }
 
@@ -18,7 +26,7 @@ export const metadata = { title: "Not found" }
  *
  * Two stacked sources rather than one merged list: what they looked at and did
  * (activity), and what they changed with before-and-after values (audit). They
- * answer different questions and merging them would bury the second under the
+ * answer different questions, and merging them buries the second under the
  * volume of the first.
  */
 export default async function ControlUserPage({
@@ -38,118 +46,141 @@ export default async function ControlUserPage({
         breadcrumbs={[{ label: "Accounts", href: "/control/users" }, { label: p.full_name }]}
         title={p.full_name}
         subtitle={p.email ?? "No email on the sign-in record"}
+        action={
+          <Link href="/control/users" className={buttonVariants({ variant: "outline" })}>
+            Manage this account
+          </Link>
+        }
       />
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <Badge tone="neutral">{roleLabel(p.role as Role)}</Badge>
-        <Badge tone={p.is_active ? "ok" : "neutral"}>
-          {p.is_active ? "Active" : "Deactivated"}
+        <Badge tone={p.is_active ? "ok" : "critical"}>
+          {p.is_active ? "Active" : "Suspended"}
         </Badge>
-        {p.is_superadmin && <Badge tone="info">Hidden super administrator</Badge>}
+        {p.is_superadmin && (
+          <Badge tone="info">
+            <ShieldIcon aria-hidden="true" className="h-3 w-3" />
+            Hidden super administrator
+          </Badge>
+        )}
         {p.has_pin && <Badge tone="neutral">Operator PIN set</Badge>}
         {p.machine_code && <Badge tone="neutral">{p.machine_code}</Badge>}
       </div>
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Fact label="Account created" value={dateTime(p.created_at)} />
-        <Fact
+        <Stat
+          icon={ClockIcon}
           label="Last sign-in"
-          value={p.last_sign_in_at ? dateTime(p.last_sign_in_at) : "Never"}
-          note={p.last_sign_in_at ? relativeTime(p.last_sign_in_at) : undefined}
+          value={p.last_sign_in_at ? relativeTime(p.last_sign_in_at) : "Never"}
+          note={p.last_sign_in_at ? dateTime(p.last_sign_in_at) : "This account has never been used"}
         />
-        <Fact
+        <Stat
+          icon={FileSearchIcon}
           label="Pages opened"
           value={num(detail.counts.page ?? 0)}
           note={`${num(detail.counts.data ?? 0)} records changed`}
         />
-        <Fact
+        <Stat
+          icon={KeyRoundIcon}
           label="Sign-in events"
           value={num(detail.counts.auth ?? 0)}
+          note={`Account created ${dateTime(p.created_at)}`}
+        />
+        <Stat
+          icon={ActivityIcon}
+          label="Refusals"
+          value={num(detail.counts.security ?? 0)}
+          tone={(detail.counts.security ?? 0) > 0 ? "warn" : "neutral"}
           note={
-            detail.counts.security
-              ? `${num(detail.counts.security)} refusals or failures`
-              : "No refusals"
+            (detail.counts.security ?? 0) > 0
+              ? "Failed sign-ins, wrong PINs or denied writes"
+              : "Nothing refused"
           }
         />
       </div>
 
-      <SectionHeading
-        action={
-          <Link
-            href={`/control/activity?actor=${p.id}`}
-            className="text-[length:calc(var(--base)*0.86)] text-ink-600 underline underline-offset-2 hover:text-ink-900"
-          >
-            Filter the full log to this person
-          </Link>
-        }
-      >
-        Activity — most recent 200
-      </SectionHeading>
-      <Card className="mb-6">
-        <ActivityRows rows={detail.activity} showActor={false} />
-      </Card>
+      <div className="space-y-6">
+        <Panel
+          icon={ActivityIcon}
+          title="Activity"
+          description="Most recent 200 events."
+          action={
+            <Link
+              href={`/control/activity?actor=${p.id}`}
+              className="text-[length:calc(var(--base)*0.82)] text-ink-600 underline underline-offset-2 hover:text-ink-900"
+            >
+              Filter the full log
+            </Link>
+          }
+        >
+          <ActivityRows rows={detail.activity} showActor={false} />
+        </Panel>
 
-      <SectionHeading>Records changed — most recent 100</SectionHeading>
-      {detail.changes.length === 0 ? (
-        <Card>
-          <EmptyState title="This account has not changed any record." />
-        </Card>
-      ) : (
-        <Table>
-          <THead>
-            <TR>
-              <TH>When</TH>
-              <TH>Table</TH>
-              <TH>Action</TH>
-              <TH>Record</TH>
-            </TR>
-          </THead>
-          <TBody>
-            {detail.changes.map((c) => (
-              <TR key={c.id}>
-                <TD>
-                  <span title={dateTime(c.changed_at)}>{relativeTime(c.changed_at)}</span>
-                </TD>
-                <TD>
-                  <code className="text-[length:calc(var(--base)*0.84)]">{c.table_name}</code>
-                </TD>
-                <TD>
-                  <Badge
-                    tone={
-                      c.action === "DELETE" ? "critical" : c.action === "INSERT" ? "ok" : "neutral"
-                    }
-                  >
-                    {c.action}
-                  </Badge>
-                </TD>
-                <TD>
-                  <code className="text-[length:calc(var(--base)*0.78)] text-steel-400">
-                    {c.record_id}
-                  </code>
-                </TD>
-              </TR>
-            ))}
-          </TBody>
-        </Table>
-      )}
+        <Panel
+          icon={HistoryIcon}
+          title="Records changed"
+          description="Most recent 100."
+          action={
+            <Link
+              href={`/control/audit?actor=${p.id}`}
+              className="text-[length:calc(var(--base)*0.82)] text-ink-600 underline underline-offset-2 hover:text-ink-900"
+            >
+              With before and after
+            </Link>
+          }
+        >
+          {detail.changes.length === 0 ? (
+            <Quiet>This account has not changed any record.</Quiet>
+          ) : (
+            <Table className="border-0">
+              <THead>
+                <TR>
+                  <TH>When</TH>
+                  <TH>Table</TH>
+                  <TH>Action</TH>
+                  <TH>Record</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {detail.changes.map((c) => (
+                  <TR key={c.id}>
+                    <TD>
+                      <span
+                        title={dateTime(c.changed_at)}
+                        className="text-[length:calc(var(--base)*0.84)]"
+                      >
+                        {relativeTime(c.changed_at)}
+                      </span>
+                    </TD>
+                    <TD>
+                      <code className="text-[length:calc(var(--base)*0.82)]">{c.table_name}</code>
+                    </TD>
+                    <TD>
+                      <Badge
+                        tone={
+                          c.action === "DELETE"
+                            ? "critical"
+                            : c.action === "INSERT"
+                              ? "ok"
+                              : "neutral"
+                        }
+                      >
+                        {c.action}
+                      </Badge>
+                    </TD>
+                    <TD>
+                      <code className="text-[length:calc(var(--base)*0.76)] text-steel-400">
+                        {c.record_id}
+                      </code>
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          )}
+        </Panel>
+      </div>
     </div>
-  )
-}
-
-function Fact({ label, value, note }: { label: string; value: string; note?: string }) {
-  return (
-    <Card>
-      <CardBody>
-        <div className="text-[length:calc(var(--base)*0.78)] uppercase tracking-wide text-ink-600">
-          {label}
-        </div>
-        <div className="mt-1 text-[length:calc(var(--base)*1.05)] font-semibold text-ink-900">
-          {value}
-        </div>
-        {note && (
-          <div className="mt-0.5 text-[length:calc(var(--base)*0.8)] text-steel-400">{note}</div>
-        )}
-      </CardBody>
-    </Card>
   )
 }

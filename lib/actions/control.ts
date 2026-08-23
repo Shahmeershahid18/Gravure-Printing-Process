@@ -281,6 +281,144 @@ export async function setSuperadmin(userId: string, on: boolean): Promise<Contro
   return { ok: true }
 }
 
+/**
+ * Stop a suspicious account acting, without losing what it did.
+ *
+ * This is the first response to a suspicious account, not deletion. Everything
+ * that makes the account suspicious is evidence, and evidence is exactly what
+ * a delete destroys -- so this is reversible, instant, and keeps the whole
+ * trail. It takes effect on their next request rather than their next
+ * sign-in, because the middleware re-reads is_active every time.
+ */
+export async function suspendUser(
+  userId: string,
+  reason?: string,
+  on = true
+): Promise<ControlResult & { name?: string }> {
+  await requireSuperAdmin()
+  const supabase = await createClient()
+
+  const { data, error } = await supabase.rpc("fn_sa_suspend_user", {
+    p_user: userId,
+    p_reason: reason?.trim() || null,
+    p_on: on,
+  })
+
+  if (error) {
+    return { ok: false, error: friendlyError(error, "That account was not changed.") }
+  }
+
+  revalidatePath("/control/users")
+  revalidatePath("/settings/users")
+  return { ok: true, name: (data as { name?: string } | null)?.name }
+}
+
+export type DeleteOutcome = ControlResult & {
+  name?: string
+  detached?: Record<string, number>
+}
+
+/**
+ * Remove an account permanently.
+ *
+ * Two steps, in this order and not the other, because eleven columns across
+ * the schema reference profiles(id) with no ON DELETE action -- so the sign-in
+ * cannot be removed while any of them still point at it, and detaching them is
+ * what destroys "who ran this job".
+ *
+ *   1. fn_sa_prepare_delete deactivates the account, writes a tombstone naming
+ *      it, then nulls those references and reports how many it touched.
+ *   2. The Admin API removes the sign-in itself. That cannot be done from SQL:
+ *      auth.users is owned by supabase_auth_admin, so the service role key is
+ *      the supported path and the same one createUser() already uses.
+ *
+ * If step 2 fails, what is left is a suspended account with detached history
+ * rather than a live account whose trail has been wiped. That is the right way
+ * round for a partial failure, and it is why the service key is checked before
+ * step 1 runs rather than after.
+ */
+export async function deleteUser(userId: string): Promise<DeleteOutcome> {
+  const me = await requireSuperAdmin()
+
+  if (userId === me.id) {
+    return { ok: false, error: "You cannot delete the account you are signed in with." }
+  }
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+
+  if (!serviceKey || !url) {
+    return {
+      ok: false,
+      error:
+        "This server has no service role key, so it cannot remove a sign-in. Suspend the account instead — that stops them acting immediately and keeps the record of what they did.",
+    }
+  }
+
+  const supabase = await createClient()
+
+  const { data, error } = await supabase.rpc("fn_sa_prepare_delete", { p_user: userId })
+  if (error) {
+    return { ok: false, error: friendlyError(error, "That account was not deleted.") }
+  }
+
+  const prepared = data as { name: string; email: string | null; detached: Record<string, number> }
+
+  const res = await fetch(`${url}/auth/v1/admin/users/${userId}`, {
+    method: "DELETE",
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+  })
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { msg?: string; message?: string }
+    console.error("[control] delete user", res.status, body.msg ?? body.message ?? "")
+
+    await logActivity({
+      event: "admin.user_delete_failed",
+      category: "security",
+      summary: `Sign-in removal failed for ${prepared.name}; the account is suspended and its history detached`,
+      targetType: "profile",
+      targetId: userId,
+    })
+
+    return {
+      ok: false,
+      name: prepared.name,
+      detached: prepared.detached,
+      error:
+        "The account was suspended and its records detached, but the sign-in itself could not be removed. Delete it from the Supabase dashboard under Authentication → Users to finish.",
+    }
+  }
+
+  revalidatePath("/control/users")
+  revalidatePath("/settings/users")
+  return { ok: true, name: prepared.name, detached: prepared.detached }
+}
+
+export type Signals = {
+  window_hours: number
+  failed_sign_ins: { email: string; attempts: number; last_attempt: string; distinct_ips: number }[]
+  pin_failures: { user_id: string; name: string | null; attempts: number; last_attempt: string }[]
+  refusals: { actor_id: string; name: string | null; role: string | null; events: number; last_seen: string }[]
+  heavy_readers: { actor_id: string; name: string | null; role: string | null; pages: number; last_seen: string }[]
+  deletions: { actor_id: string | null; name: string | null; n: number; last_seen: string }[]
+  dormant: { id: string; full_name: string; role: string; last_sign_in_at: string | null }[]
+}
+
+export async function getSignals(hours = 24): Promise<Signals | null> {
+  await requireSuperAdmin()
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("fn_sa_signals", { p_hours: hours })
+  if (error) {
+    console.error("[control] signals", error.code, error.message)
+    return null
+  }
+  return data as Signals
+}
+
 export async function pruneActivity(
   olderThanDays: number,
   includeAudit = false

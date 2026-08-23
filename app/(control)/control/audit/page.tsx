@@ -69,7 +69,7 @@ export default async function ControlAuditPage({
       />
 
       <div className="mt-4">
-        <AuditRows rows={data.rows} />
+        <AuditRows rows={data.rows} total={data.total} />
       </div>
 
       {pages > 1 && (

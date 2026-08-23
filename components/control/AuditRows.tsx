@@ -2,10 +2,10 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Card } from "@/components/ui/card"
+import { HistoryIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { EmptyState } from "@/components/ui/empty-state"
-import { dateTime } from "@/lib/format"
+import { Panel, Quiet } from "@/components/control/ui"
+import { dateTime, num } from "@/lib/format"
 import { relativeTime } from "@/lib/notifications"
 import type { AuditRow } from "@/lib/actions/control"
 
@@ -38,19 +38,22 @@ function show(v: unknown): string {
   return JSON.stringify(v)
 }
 
-export function AuditRows({ rows }: { rows: AuditRow[] }) {
+export function AuditRows({ rows, total }: { rows: AuditRow[]; total?: number }) {
   const [expanded, setExpanded] = React.useState<string | null>(null)
 
-  if (rows.length === 0) {
-    return (
-      <Card>
-        <EmptyState title="No change matches this filter. Widen it, or clear it to see everything." />
-      </Card>
-    )
-  }
-
   return (
-    <Card>
+    <Panel
+      icon={HistoryIcon}
+      title="Row changes"
+      description={
+        total !== undefined
+          ? `Showing ${rows.length} of ${num(total)}, newest first.`
+          : undefined
+      }
+    >
+      {rows.length === 0 ? (
+        <Quiet>No change matches this filter. Widen it, or clear it to see everything.</Quiet>
+      ) : (
       <ul>
         {rows.map((r) => {
           const fields = changedFields(r.old_data, r.new_data)
@@ -155,6 +158,7 @@ export function AuditRows({ rows }: { rows: AuditRow[] }) {
           )
         })}
       </ul>
-    </Card>
+      )}
+    </Panel>
   )
 }

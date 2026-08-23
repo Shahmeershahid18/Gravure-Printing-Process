@@ -211,19 +211,80 @@ revoke in `20260823140000` by a side door. `fn_audit_redact()` replaces the
 value with `[redacted]` while keeping the key, so a reader can still see that
 the field changed.
 
+### `20260823220000_superadmin_user_removal.sql` — added after the first two
+
+**Not yet applied.** The first two were pasted into the SQL editor by hand; this
+one still needs running.
+
+**Suspend, and delete.** Two operations, because "delete this suspicious user"
+is almost never the right first move. A suspicious account is a live incident,
+and everything that makes it suspicious is evidence — deleting the account
+destroys the evidence to achieve the lockout. So `fn_sa_suspend_user` is the
+default: reversible, instant, keeps the whole trail, clears the operator PIN.
+It needs no session-revocation machinery because the middleware re-reads
+`is_active` on every request.
+
+`fn_sa_prepare_delete` is the deliberate one. Eleven columns across the schema
+reference `profiles(id)` with no `ON DELETE` action, so the sign-in cannot be
+removed while any of them point at it — and detaching them is exactly what
+destroys "who ran this job". The function deactivates, writes a tombstone
+naming the person, detaches, and reports the counts; the server action then
+removes the sign-in through the Admin API, which is the only supported path
+since `auth.users` is owned by `supabase_auth_admin`. Ordered so a partial
+failure leaves a suspended account with detached history rather than a live
+account whose trail has been wiped. The dialog names every one of those costs
+and requires the account's name typed to confirm.
+
+`fn_sa_signals` powers the overview's "Needs a look": repeated failed
+sign-ins grouped by address, wrong PINs at a tablet, refused writes, unusual
+read volume, deletion runs, and dormant-but-active accounts.
+
+### Super admin routing
+
+`landingFor(role, isSuperadmin)` now returns `/control` for the hidden account,
+overriding the role entirely. The ordinary role is camouflage — it exists so
+the account looks unremarkable where it cannot be hidden — so routing off it
+would send a super admin carrying `admin` to the dashboard rather than to the
+job the account is for.
+
+Middleware resolves this lazily and memoised: every guard is a branch a super
+admin overrides, but the common case (a planner opening `/jobs`) reaches none
+of them, so the extra round trip is only paid where the answer changes the
+outcome. The super admin is now also exempt from the kiosk shell split and the
+`adminOnly` / `plannerOrAdmin` guards, matching `requireRole()` — previously
+the signpost pointed away from pages the wall would have allowed.
+
+### Console interface
+
+Rebuilt around a left rail and an inverted ink header. The header is the one
+deliberate break from the house style and it does a job: this account also
+holds an ordinary admin role and works in the ordinary shell, so it has to be
+able to tell which of the two it is looking at before it deletes somebody.
+Everything below stays in the product's tokens.
+
+The overview is ordered by how much a thing might need doing about it — signals
+first, counts second, stream last. The activity list became a fixed-column grid
+because the previous flex layout put the timestamp in a different place on
+every line, which defeats the one thing that list is for.
+
 ### Before trusting any of the above
 
 ```
-supabase db push          # or paste both files into the SQL editor, in order
+supabase db push          # or paste each file into the SQL editor, in order
 select fn_grant_superadmin('you@example.com');
 ```
 
 Then check, in this order: an admin's Settings → Users no longer lists the
 granted account; `/control` returns 404 signed in as that admin and opens for
-the super admin; completing a run puts a notification in a planner's bell; the
+the super admin; signing in as the super admin lands on `/control` rather than
+the dashboard; completing a run puts a notification in a planner's bell; the
 tablet's Messages sheet shows a critical issue at the top; and
 `select * from audit_log where table_name = 'profiles'` shows `[redacted]`
 rather than a hash.
+
+Deleting an account needs `SUPABASE_SERVICE_ROLE_KEY` on the server — without
+it the console says so and points at suspension instead, rather than failing
+halfway.
 
 ---
 

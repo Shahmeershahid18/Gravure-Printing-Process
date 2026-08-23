@@ -19,8 +19,9 @@ function isOpen(path: string): boolean {
   return path === "/" || OPEN_PAGES.some((p) => path === p || path.startsWith(p + "/"))
 }
 
-/** Where each role lands. Mirrors landingFor() in lib/auth.ts. */
-function landingFor(role: string): string {
+/** Where each role lands. Mirrors landingFor() in lib/roles.ts. */
+function landingFor(role: string, isSuperadmin = false): string {
+  if (isSuperadmin) return "/control"
   switch (role) {
     case "operator":   return "/kiosk"
     case "supervisor": return "/shift"
@@ -109,9 +110,28 @@ export async function updateSession(request: NextRequest) {
   }
 
   const role = profile?.role ?? "viewer"
-  const home = landingFor(role)
 
-  if (isPublic) return redirectTo(home)
+  /**
+   * Is the caller the hidden super admin?
+   *
+   * Asked lazily and memoised, never eagerly. Every guard below is a branch a
+   * super admin overrides, but the common case -- a planner opening /jobs --
+   * reaches none of them, and paying for an extra round trip on every request
+   * in the product to answer a question almost no request asks is the wrong
+   * trade. `home` is a function for the same reason: computing the landing
+   * path eagerly would force the check on every request that never redirects.
+   */
+  let superadmin: boolean | undefined
+  const isSuperadmin = async (): Promise<boolean> => {
+    if (superadmin === undefined) {
+      const { data } = await supabase.rpc("fn_is_superadmin")
+      superadmin = data === true
+    }
+    return superadmin
+  }
+  const home = async () => landingFor(role, await isSuperadmin())
+
+  if (isPublic) return redirectTo(await home())
 
   // A signed-in reader stays on the landing page, the guides and the policies.
   // Each swaps its own call to action to point at their shell rather than
@@ -133,23 +153,41 @@ export async function updateSession(request: NextRequest) {
   // Two distinct shells with two distinct audiences (plan Section 9).
   // Operators live in the kiosk; nobody else belongs there, and an operator
   // has no business in the desktop shell.
+  //
+  // The super admin is exempt from both halves. Their ordinary role is
+  // camouflage, and a super admin carrying `operator` for cover would
+  // otherwise be pinned to a tablet.
   const inKiosk = path.startsWith("/kiosk")
-  if (role === "operator" && !inKiosk) return redirectTo("/kiosk")
-  if (role !== "operator" && inKiosk) return redirectTo(home)
+  if (role === "operator" && !inKiosk && !(await isSuperadmin())) {
+    return redirectTo("/kiosk")
+  }
+  if (role !== "operator" && inKiosk && !(await isSuperadmin())) {
+    return redirectTo(await home())
+  }
 
   // Desktop routes that only some roles may open. RLS is the wall; this is the
   // signpost, so a viewer never lands on a page whose every control is denied.
+  //
+  // requireRole() in lib/auth.ts lets the super admin through every one of
+  // these, so the middleware has to as well -- otherwise the signpost points
+  // somewhere the wall would have allowed, and the account cannot reach pages
+  // its own console links to.
   const adminOnly = ["/settings/users", "/settings/notifications"]
-  if (adminOnly.some((p) => path.startsWith(p)) && role !== "admin") {
-    return redirectTo(home)
+  if (
+    adminOnly.some((p) => path.startsWith(p)) &&
+    role !== "admin" &&
+    !(await isSuperadmin())
+  ) {
+    return redirectTo(await home())
   }
 
   const plannerOrAdmin = ["/jobs/new", "/settings"]
   if (
     plannerOrAdmin.some((p) => path.startsWith(p)) &&
-    !["admin", "planner"].includes(role)
+    !["admin", "planner"].includes(role) &&
+    !(await isSuperadmin())
   ) {
-    return redirectTo(home)
+    return redirectTo(await home())
   }
 
   return secure(supabaseResponse)

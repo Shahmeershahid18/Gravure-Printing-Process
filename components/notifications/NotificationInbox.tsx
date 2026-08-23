@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/utils/supabase/client"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -32,13 +31,11 @@ export function NotificationInbox({ userId }: { userId: string }) {
   const [category, setCategory] = React.useState<NotificationCategory | "">("")
   const [limit, setLimit] = React.useState(PAGE)
 
-  const { rows, unread, loading, load, markRead, markAllRead, clearRead } = useInbox(
-    userId,
-    limit
-  )
-
-  const supabaseRef = React.useRef<ReturnType<typeof createClient>>(null)
-  if (!supabaseRef.current) supabaseRef.current = createClient()
+  // Every mutation goes through the store rather than a second client of its
+  // own, so the bell in the header above this list always shows the same
+  // count as the list itself.
+  const { rows, unread, loading, markRead, markUnread, markAllRead, archive, clearRead } =
+    useInbox(userId, limit)
 
   const visible = React.useMemo(
     () =>
@@ -59,23 +56,8 @@ export function NotificationInbox({ userId }: { userId: string }) {
     )
   }, [rows])
 
-  const toggleRead = async (id: string, isUnread: boolean) => {
-    if (isUnread) {
-      await markRead([id])
-    } else {
-      await supabaseRef.current!.from("notifications").update({ read_at: null }).eq("id", id)
-      await load()
-    }
-  }
-
-  const archive = async (id: string) => {
-    const now = new Date().toISOString()
-    await supabaseRef.current!
-      .from("notifications")
-      .update({ archived_at: now, read_at: now })
-      .eq("id", id)
-    await load()
-  }
+  const toggleRead = (id: string, isUnread: boolean) =>
+    isUnread ? markRead([id]) : markUnread(id)
 
   return (
     <div className="space-y-4">

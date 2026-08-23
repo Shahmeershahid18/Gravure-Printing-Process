@@ -9,8 +9,21 @@ export type Role = "admin" | "planner" | "supervisor" | "operator" | "qc" | "vie
 
 export const ROLES: Role[] = ["admin", "planner", "supervisor", "operator", "qc", "viewer"]
 
-/** Where each role lands -- plan Section 3.2. */
-export function landingFor(role: Role): string {
+/** The hidden console. One definition, imported by everything that routes. */
+export const CONTROL_HOME = "/control"
+
+/**
+ * Where each role lands -- plan Section 3.2.
+ *
+ * The super admin overrides the role entirely rather than being another case
+ * in the switch. Their ordinary role is camouflage -- it exists so the account
+ * looks unremarkable in the places it cannot be hidden from -- so routing off
+ * it would send a super admin carrying `admin` to the dashboard, which is not
+ * the job that account is for. Monitoring is the job, so monitoring is the
+ * landing.
+ */
+export function landingFor(role: Role, isSuperadmin = false): string {
+  if (isSuperadmin) return CONTROL_HOME
   switch (role) {
     case "operator":   return "/kiosk"
     case "supervisor": return "/shift"

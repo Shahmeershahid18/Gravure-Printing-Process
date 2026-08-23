@@ -1,8 +1,9 @@
 import Link from "next/link"
+import { ActivityIcon } from "lucide-react"
 import { getActivity, getUsers } from "@/lib/actions/control"
 import { PageHeader } from "@/components/ui/page-header"
-import { Card } from "@/components/ui/card"
 import { buttonVariants } from "@/components/ui/button"
+import { Panel } from "@/components/control/ui"
 import { num } from "@/lib/format"
 import { ActivityRows } from "@/components/control/ActivityRows"
 import { ActivityFilters } from "@/components/control/ActivityFilters"
@@ -75,9 +76,15 @@ export default async function ActivityPage({
         users={users.map((u) => ({ id: u.id, name: u.full_name, role: u.role }))}
       />
 
-      <Card className="mt-4">
-        <ActivityRows rows={data.rows} />
-      </Card>
+      <div className="mt-4">
+        <Panel
+          icon={ActivityIcon}
+          title="Events"
+          description={`Showing ${data.rows.length} of ${num(data.total)}, newest first.`}
+        >
+          <ActivityRows rows={data.rows} />
+        </Panel>
+      </div>
 
       {pages > 1 && (
         <div className="mt-4 flex items-center justify-between gap-3">

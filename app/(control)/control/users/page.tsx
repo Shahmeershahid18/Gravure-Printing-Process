@@ -1,29 +1,27 @@
 import { getUsers } from "@/lib/actions/control"
+import { requireSuperAdmin } from "@/lib/auth"
 import { PageHeader } from "@/components/ui/page-header"
-import { Alert } from "@/components/ui/alert"
 import { ControlUsersTable } from "@/components/control/ControlUsersTable"
 
 export const metadata = { title: "Not found" }
 
 export default async function ControlUsersPage() {
-  const users = await getUsers()
+  const [me, users] = await Promise.all([requireSuperAdmin(), getUsers()])
+
+  const suspended = users.filter((u) => !u.is_active).length
 
   return (
     <div>
       <PageHeader
         title="Accounts"
-        subtitle="Every account, including the hidden ones that Settings → Users does not show."
+        subtitle={
+          `Every account, including the hidden ones Settings → Users does not show. ` +
+          (suspended > 0
+            ? `${suspended} of ${users.length} are suspended.`
+            : `All ${users.length} can sign in.`)
+        }
       />
-
-      <Alert tone="info" title="This list is not the same as the admin one." className="mb-4">
-        Settings → Users is filtered by the row level policy on{" "}
-        <code>profiles</code>: hidden accounts are absent from it, and an admin
-        cannot edit or deactivate one even knowing its id. This page reads
-        through <code>fn_sa_users()</code>, which is not filtered, and adds the
-        sign-in facts that live in <code>auth.users</code>.
-      </Alert>
-
-      <ControlUsersTable users={users} />
+      <ControlUsersTable users={users} currentUserId={me.id} />
     </div>
   )
 }
