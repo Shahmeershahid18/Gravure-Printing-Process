@@ -85,21 +85,51 @@ export function RealtimeRefresh({ showIndicator = false }: { showIndicator?: boo
       timer = setTimeout(flush, DEBOUNCE_MS)
     }
 
-    const channel = supabase.channel("intaglio-live")
-    for (const table of LIVE_TABLES) {
-      channel.on(
-        "postgres_changes",
-        { event: "*", schema: "public", table },
-        schedule
-      )
+    let channel: ReturnType<typeof supabase.channel> | undefined
+
+    /**
+     * Realtime authenticates separately from PostgREST.
+     *
+     * The socket carries its own credential, and until the session read from
+     * the auth cookie reaches it the subscriber is anonymous. Postgres Changes
+     * applies RLS per subscriber, and no policy grants `anon` a row, so an
+     * anonymous socket is told about nothing -- while the channel itself still
+     * joins perfectly happily and reports SUBSCRIBED. That combination is the
+     * trap: the indicator reads "Live" and not one row ever arrives.
+     *
+     * So the token goes on before the channel is opened, not after.
+     */
+    const start = async () => {
+      const { data } = await supabase.auth.getSession()
+      if (disposed) return
+      const token = data.session?.access_token
+      if (token) await supabase.realtime.setAuth(token)
+      if (disposed) return
+
+      channel = supabase.channel("intaglio-live")
+      for (const table of LIVE_TABLES) {
+        channel.on(
+          "postgres_changes",
+          { event: "*", schema: "public", table },
+          schedule
+        )
+      }
+
+      channel.subscribe((s) => {
+        if (disposed) return
+        if (s === "SUBSCRIBED") setStatus("live")
+        else if (s === "CHANNEL_ERROR" || s === "TIMED_OUT" || s === "CLOSED") {
+          setStatus("offline")
+        }
+      })
     }
 
-    channel.subscribe((s) => {
-      if (disposed) return
-      if (s === "SUBSCRIBED") setStatus("live")
-      else if (s === "CHANNEL_ERROR" || s === "TIMED_OUT" || s === "CLOSED") {
-        setStatus("offline")
-      }
+    void start()
+
+    // An access token expires during a shift. Hand the socket the new one, or
+    // it goes quiet an hour in and the screen silently stops being live.
+    const { data: authSub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.access_token) void supabase.realtime.setAuth(session.access_token)
     })
 
     // Coming back to the tab: pick up anything that happened while it slept.
@@ -113,7 +143,8 @@ export function RealtimeRefresh({ showIndicator = false }: { showIndicator?: boo
       disposed = true
       if (timer) clearTimeout(timer)
       document.removeEventListener("visibilitychange", onVisible)
-      supabase.removeChannel(channel)
+      authSub.subscription.unsubscribe()
+      if (channel) supabase.removeChannel(channel)
     }
   }, [router])
 
