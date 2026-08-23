@@ -48,17 +48,28 @@ const GROUPS: Group[] = [
   },
   {
     heading: "Setup",
-    items: [{ href: "/settings", label: "Settings", roles: ["admin", "planner"] }],
+    items: [
+      { href: "/notifications", label: "Notifications" },
+      { href: "/settings", label: "Settings", roles: ["admin", "planner"] },
+    ],
   },
 ]
 
-export function Sidebar({ role }: { role: Role }) {
+export function Sidebar({
+  role,
+  isSuperadmin = false,
+}: {
+  role: Role
+  isSuperadmin?: boolean
+}) {
   const pathname = usePathname()
   const [open, setOpen] = React.useState(false)
 
   const groups = GROUPS.map((g) => ({
     ...g,
-    items: g.items.filter((i) => !i.roles || i.roles.includes(role)),
+    // A super admin passes every policy, so filtering the rail by their
+    // nominal role would hide pages that would have worked.
+    items: g.items.filter((i) => !i.roles || isSuperadmin || i.roles.includes(role)),
   })).filter((g) => g.items.length > 0)
 
   const isActive = (href: string) =>

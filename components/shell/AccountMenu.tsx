@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { signOut } from "@/lib/actions/auth"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -16,12 +17,23 @@ export function AccountMenu({
   roleLabel,
   initials,
   machineCode,
+  isSuperadmin = false,
 }: {
   name: string
   email: string
   roleLabel: string
   initials: string
   machineCode?: string | null
+  /**
+   * Adds the only link to the console anywhere in the product.
+   *
+   * It is rendered for that one account and for nobody else, so it is not
+   * "hidden with CSS" -- the markup does not exist in anyone else's document,
+   * and neither does the route: /control returns 404 for every other visitor.
+   * The chip itself stays identical, because a super admin who looks different
+   * in the header is not hidden.
+   */
+  isSuperadmin?: boolean
 }) {
   const [open, setOpen] = React.useState(false)
   const ref = React.useRef<HTMLDivElement>(null)
@@ -89,7 +101,36 @@ export function AccountMenu({
               {machineCode ? ` on ${machineCode}` : ""}
             </div>
           </div>
-          <form action={signOut} className="p-2">
+          <div className="p-2">
+            <Link
+              href="/notifications"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className={cn(
+                "flex min-h-[var(--tap)] items-center rounded-[var(--radius)] px-2",
+                "text-[length:calc(var(--base)*0.9)] text-ink-600",
+                "transition-colors hover:bg-paper-100 hover:text-ink-900"
+              )}
+            >
+              Notifications
+            </Link>
+            {isSuperadmin && (
+              <Link
+                href="/control"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex min-h-[var(--tap)] items-center rounded-[var(--radius)] px-2",
+                  "text-[length:calc(var(--base)*0.9)] text-ink-600",
+                  "transition-colors hover:bg-paper-100 hover:text-ink-900"
+                )}
+              >
+                Console
+              </Link>
+            )}
+          </div>
+
+          <form action={signOut} className="border-t border-steel-200 p-2">
             <Button type="submit" variant="outline" size="full" role="menuitem">
               Sign out
             </Button>

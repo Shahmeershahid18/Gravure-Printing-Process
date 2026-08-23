@@ -118,6 +118,18 @@ export async function updateSession(request: NextRequest) {
   // throwing them out of the page they were halfway through.
   if (isOpen(path)) return secure(supabaseResponse)
 
+  // The hidden console answers for itself, and it answers with a 404.
+  //
+  // Middleware must not touch it. A redirect away from /control would be the
+  // tell: an admin who types the path and lands back on the dashboard has
+  // learned the route exists and that they are not allowed on it, which is
+  // exactly what a 404 avoids. Deciding here would also mean a second query
+  // per request on every path to find out whether the visitor is one, and the
+  // layout already knows.
+  if (path === "/control" || path.startsWith("/control/")) {
+    return secure(supabaseResponse)
+  }
+
   // Two distinct shells with two distinct audiences (plan Section 9).
   // Operators live in the kiosk; nobody else belongs there, and an operator
   // has no business in the desktop shell.
@@ -127,7 +139,7 @@ export async function updateSession(request: NextRequest) {
 
   // Desktop routes that only some roles may open. RLS is the wall; this is the
   // signpost, so a viewer never lands on a page whose every control is denied.
-  const adminOnly = ["/settings/users"]
+  const adminOnly = ["/settings/users", "/settings/notifications"]
   if (adminOnly.some((p) => path.startsWith(p)) && role !== "admin") {
     return redirectTo(home)
   }

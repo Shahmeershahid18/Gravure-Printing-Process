@@ -3,6 +3,7 @@
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/utils/supabase/server"
+import { logActivity } from "@/lib/actions/activity"
 
 const OPERATOR_COOKIE = "operator_id"
 const OPERATOR_NAME_COOKIE = "operator_name"
@@ -42,6 +43,16 @@ export async function signInOperator(
     return { ok: false, error: "Cannot reach the server. Try again in a moment." }
   }
   if (!ok) {
+    // The PIN is the whole attribution trail on the floor, so a wrong one is
+    // worth recording -- a run of them against one operator on one tablet is
+    // somebody trying to be attributed as someone else.
+    await logActivity({
+      event: "auth.pin_failed",
+      category: "security",
+      summary: "Wrong operator PIN at the tablet",
+      targetType: "profile",
+      targetId: operatorId,
+    })
     return { ok: false, error: "That PIN is not correct for this operator." }
   }
 
@@ -50,6 +61,14 @@ export async function signInOperator(
     .select("full_name")
     .eq("id", operatorId)
     .maybeSingle()
+
+  await logActivity({
+    event: "auth.pin_unlock",
+    category: "auth",
+    summary: `${profile?.full_name ?? "An operator"} signed in at the tablet`,
+    targetType: "profile",
+    targetId: operatorId,
+  })
 
   const jar = await cookies()
   const opts = {

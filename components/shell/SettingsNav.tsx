@@ -12,6 +12,7 @@ const ITEMS = [
   { href: "/settings/issue-templates", label: "Issue templates" },
   { href: "/settings/life-rules", label: "Cylinder life rules" },
   { href: "/settings/users", label: "Users and PINs", adminOnly: true },
+  { href: "/settings/notifications", label: "Notifications", adminOnly: true },
   { href: "/settings/import", label: "Import from Excel" },
 ]
 

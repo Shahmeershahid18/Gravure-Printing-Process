@@ -4,6 +4,7 @@ import { getActiveOperator } from "@/lib/actions/kiosk-auth"
 import { KioskBar } from "@/components/kiosk/KioskBar"
 import { SyncManager } from "@/components/kiosk/SyncManager"
 import { RealtimeRefresh } from "@/components/realtime/RealtimeRefresh"
+import { ActivityTracker } from "@/components/activity/ActivityTracker"
 
 /**
  * The kiosk shell -- tablet, clamped near a press, gloves on.
@@ -38,7 +39,9 @@ export default async function KioskLayout({ children }: { children: React.ReactN
         machineCode={machineCode}
         operatorName={operator?.name ?? null}
         title={machineCode ? `Machine ${machineCode}` : "Intaglio"}
+        userId={profile.id}
       />
+      <ActivityTracker />
       <SyncManager />
       {/* The tablet is the one screen most likely to be looking at a run a
           supervisor is correcting from the office at the same moment. */}

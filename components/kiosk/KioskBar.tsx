@@ -6,6 +6,7 @@ import { lockOperator, touchOperatorSession } from "@/lib/actions/kiosk-auth"
 import { Button } from "@/components/ui/button"
 import { Mark } from "@/components/brand/Logo"
 import { ThemeCycle } from "@/components/theme/ThemeToggle"
+import { KioskNotifications } from "@/components/kiosk/KioskNotifications"
 import { cn } from "@/lib/utils"
 
 const IDLE_MS = 30 * 60 * 1000 // matches PIN_TTL_SECONDS in kiosk-auth
@@ -22,10 +23,13 @@ export function KioskBar({
   machineCode,
   operatorName,
   title,
+  userId,
 }: {
   machineCode: string | null
   operatorName: string | null
   title: string
+  /** The machine account. See KioskNotifications on why that is the scope. */
+  userId: string
 }) {
   const router = useRouter()
   const [daylight, setDaylight] = React.useState(false)
@@ -124,9 +128,17 @@ export function KioskBar({
         {clock}
       </span>
 
+      <KioskNotifications userId={userId} />
+
       <ThemeCycle />
 
-      <Button variant="outline" size="sm" onClick={toggleDaylight} aria-pressed={daylight}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={toggleDaylight}
+        aria-pressed={daylight}
+        className="hidden sm:inline-flex"
+      >
         {daylight ? "Daylight on" : "Daylight off"}
       </Button>
 

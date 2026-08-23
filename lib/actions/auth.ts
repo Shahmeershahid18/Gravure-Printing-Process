@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { createClient } from "@/utils/supabase/server"
 import { landingFor, type Role } from "@/lib/auth"
+import { logActivity } from "@/lib/actions/activity"
 
 export type AuthState = { error?: string }
 
@@ -26,6 +27,17 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error || !data.user) {
+    // Recorded with the email that was tried, which is the only useful thing
+    // about a failure: repeated attempts against one real address look
+    // different from a spray across made-up ones. There is no session at this
+    // point, so fn_log_activity accepts it on the strength of the auth.*
+    // prefix and nothing else.
+    await logActivity({
+      event: "auth.sign_in_failed",
+      category: "security",
+      summary: `Failed sign-in for ${email}`,
+      actorEmail: email,
+    })
     return { error: "Email or password is not correct. Check both and try again." }
   }
 
@@ -36,9 +48,21 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
     .maybeSingle()
 
   if (profile && profile.is_active === false) {
+    await logActivity({
+      event: "auth.sign_in_blocked",
+      category: "security",
+      summary: `Deactivated account attempted sign-in: ${email}`,
+      actorEmail: email,
+    })
     await supabase.auth.signOut()
     return { error: "This account is deactivated. Ask an admin to reactivate it." }
   }
+
+  await logActivity({
+    event: "auth.sign_in",
+    category: "auth",
+    summary: `Signed in as ${profile?.role ?? "viewer"}`,
+  })
 
   revalidatePath("/", "layout")
   redirect(landingFor((profile?.role as Role) ?? "viewer"))
@@ -53,6 +77,10 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
  */
 export async function signOut() {
   const supabase = await createClient()
+
+  // Before the session goes, or auth.uid() is null and the entry is anonymous.
+  await logActivity({ event: "auth.sign_out", category: "auth", summary: "Signed out" })
+
   await supabase.auth.signOut()
 
   const jar = await cookies()

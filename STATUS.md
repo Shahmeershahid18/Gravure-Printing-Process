@@ -116,6 +116,117 @@ and a deleted cylinder — so this is activity timing, not content. Closing it
 entirely means moving off Postgres Changes to Broadcast-from-database with an
 RLS-guarded topic, which is more machinery than this system needs today.
 
+---
+
+## Notifications and the hidden super administrator — built, not yet applied
+
+Two migrations were added on 23 Aug 2026 and **neither has been run against a
+database**. They typecheck, lint and build clean, and their SQL has been
+checked structurally, but no Postgres has parsed them: this machine has no
+Docker for `supabase start` and the project is not linked for `supabase db
+push`. Everything below is therefore *written and reviewed*, not *verified*,
+and should be read that way until the checks at the end of this section pass.
+
+### `20260823210000_notifications.sql`
+
+Fan-out on write: one row per recipient in `notifications`, RLS
+`recipient_id = auth.uid()`, delivered over the Postgres Changes socket the
+app already runs. No queue and no worker.
+
+Sixteen categories, raised by **database triggers** rather than by server
+actions, because a run can be completed from the desktop, from the tablet, from
+the offline queue replaying, or by an admin correcting history — hanging the
+notification off the write is the only version a later code path cannot bypass.
+
+| Where | What |
+|---|---|
+| Header bell | Unread count, latest twelve, mark all read. Live. |
+| `/notifications` | Full inbox, filter by unread and by kind, archive |
+| `/notifications/preferences` | Per-person switches, every role |
+| `/settings/notifications` | Admin: role routing matrix, plus announcements |
+| Kiosk | Full-width sheet at `--tap` sizing; critical items sort to the top |
+
+Routing is data, in `notification_types`, so "stop paging QC about planned
+runs" is a tick box rather than a migration. A category has to be routed to
+your role *and* left on by you, so neither switch can silently override the
+other.
+
+Two behaviours worth knowing: you are never notified of your own action, and
+cylinder wear alerts carry a `dedupe_key` per cylinder per threshold, because
+"C-104 has passed 80%" is true on every subsequent run and saying it every time
+teaches people to ignore the bell.
+
+### `20260823200000_superadmin_role.sql`
+
+**Total control** is eight lines, not a rewrite. Every write policy in
+`20260823090000` goes through `fn_role_in()` and every read through
+`fn_is_authed()`; both now return true for a super admin. No policy was
+rewritten, so no policy can be forgotten when a table is added later.
+`fn_can_write_run()` and the two run-lock triggers are widened separately
+because they carry rules on top of the role check.
+
+**Hidden** means absent, not greyed out. The profile row is filtered out of the
+`profiles` read policy, the operator picker, and the audit trail for everyone
+else; an admin cannot edit or deactivate one even knowing its uuid, at RLS
+*and* at a trigger that catches the security-definer paths RLS does not cover.
+
+Membership lives in `private.superadmins`. The `private` schema is not in
+`config.toml`'s exposed list, so PostgREST cannot reach it at any privilege
+level — it is not in the schema cache and not in the OpenAPI description.
+Nothing there can leak by a forgotten `GRANT`, because there is no route.
+
+**The activity log** is `private.activity_log`, readable only through
+`fn_sa_*` functions that each call `fn_sa_guard()`. It records sign-ins,
+sign-outs, failed sign-ins, PIN unlocks and failures, page views, and every
+row change. `audit_log` gained inserts and grew from two tables to twenty-one.
+
+The console is `/control`, which **404s** for everyone else rather than
+redirecting — a redirect admits the route exists. Middleware deliberately does
+not touch it. Its only link anywhere is in the account menu, rendered for that
+one account.
+
+Granted from the SQL editor, with no UI path to the first one:
+
+```sql
+select fn_grant_superadmin('you@example.com');   -- account must already exist
+select fn_revoke_superadmin('you@example.com');  -- to undo
+```
+
+### Two things this deliberately does, stated rather than buried
+
+1. **Page-view tracking is surveillance of legitimate users.** That is what was
+   asked for and it is implemented, but `/privacy` does not yet mention it and
+   should before this carries real data. See `components/activity/ActivityTracker.tsx`.
+2. **`audit_log` will now grow fast.** The trigger covers `run_stations`, which
+   an 800ms autosave rewrites throughout every run. `fn_sa_prune_activity()`
+   and the retention panel on `/control/activity` exist for this; nothing calls
+   them on a schedule. The activity *stream* excludes `run_stations` and
+   `run_process` for the same reason — the full before/after is still in
+   `audit_log`, which is where anyone investigating one run looks.
+
+One regression was caught during review and fixed before it shipped: auditing
+`profiles` would have copied every operator's bcrypt `pin_hash` into
+`audit_log`, which admins and supervisors can read — undoing the column-level
+revoke in `20260823140000` by a side door. `fn_audit_redact()` replaces the
+value with `[redacted]` while keeping the key, so a reader can still see that
+the field changed.
+
+### Before trusting any of the above
+
+```
+supabase db push          # or paste both files into the SQL editor, in order
+select fn_grant_superadmin('you@example.com');
+```
+
+Then check, in this order: an admin's Settings → Users no longer lists the
+granted account; `/control` returns 404 signed in as that admin and opens for
+the super admin; completing a run puts a notification in a planner's bell; the
+tablet's Messages sheet shows a critical issue at the top; and
+`select * from audit_log where table_name = 'profiles'` shows `[redacted]`
+rather than a hash.
+
+---
+
 ## Outstanding
 
 **One optional migration:**
